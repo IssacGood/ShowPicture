@@ -544,6 +544,7 @@ function applySort() {
 }
 
 
+function updateStats() {
   const imgs = files.filter(f=>f.type==='image').length;
   const vids = files.filter(f=>f.type==='video').length;
   document.getElementById('stats').textContent = `共 ${files.length} 個 ｜ 圖 ${imgs} ／ 影 ${vids}`;
