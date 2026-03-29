@@ -332,6 +332,7 @@
     background: #000;
     z-index: 200;
     flex-direction: column;
+    padding-top: 48px;
   }
   #slideshow.open { display: flex; }
 
@@ -345,6 +346,7 @@
     z-index: 5;
     opacity: 0;
     transition: opacity .3s;
+    backdrop-filter: blur(6px);
   }
   #slideshow:hover #ss-topbar { opacity: 1; }
   #ss-counter { color: var(--text2); font-size: 13px; }
@@ -942,23 +944,16 @@ function renderSs() {
       img.alt = f.name;
       cell.appendChild(img);
     } else {
-      // show first frame static
-      const canvas = document.createElement('canvas');
-      canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;';
-      cell.appendChild(canvas);
-      const ico = document.createElement('div');
-      ico.className = 'ss-vidico';
-      cell.appendChild(ico);
+      // autoplay video in slideshow
       const vid = document.createElement('video');
       vid.src = f.url;
       vid.muted = true;
-      vid.preload = 'metadata';
-      vid.addEventListener('loadeddata', () => { vid.currentTime = 0.1; });
-      vid.addEventListener('seeked', () => {
-        canvas.width = vid.videoWidth || 320;
-        canvas.height = vid.videoHeight || 240;
-        canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
-      });
+      vid.loop = true;
+      vid.autoplay = true;
+      vid.playsInline = true;
+      vid.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
+      cell.appendChild(vid);
+      vid.play().catch(()=>{});
     }
     stage.appendChild(cell);
   }
