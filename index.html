@@ -1,1 +1,818 @@
-1
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本地媒體相簿</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #242424;
+    --border: #333;
+    --text: #e8e8e8;
+    --text2: #999;
+    --accent: #c8a96e;
+    --accent2: #a08040;
+    --radius: 6px;
+    --toolbar-h: 52px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    font-size: 14px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOOLBAR ── */
+  #toolbar {
+    height: var(--toolbar-h);
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  #toolbar .logo {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    margin-right: 8px;
+    white-space: nowrap;
+  }
+  .tb-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+  .tb-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s;
+  }
+  .tb-btn:hover { background: var(--bg3); border-color: #555; }
+  .tb-btn.active { background: var(--accent2); border-color: var(--accent); color: #fff; }
+  #folder-btn {
+    background: var(--accent2);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 500;
+  }
+  #folder-btn:hover { background: var(--accent); }
+
+  /* grid cols slider */
+  #col-label { color: var(--text2); font-size: 12px; white-space: nowrap; }
+  #col-slider { width: 90px; accent-color: var(--accent); }
+
+  #stats { color: var(--text2); font-size: 12px; margin-left: auto; white-space: nowrap; }
+
+  /* ── MAIN ── */
+  #main {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px;
+  }
+  #main::-webkit-scrollbar { width: 6px; }
+  #main::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+  /* ── GRID ── */
+  #grid {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(var(--cols, 4), 1fr);
+  }
+  .thumb {
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: var(--radius);
+    cursor: pointer;
+    position: relative;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    transition: transform .15s, border-color .15s;
+  }
+  .thumb:hover { transform: scale(1.02); border-color: var(--accent); }
+  .thumb img, .thumb canvas {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .thumb .badge {
+    position: absolute; bottom: 4px; right: 4px;
+    background: rgba(0,0,0,.65);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .thumb .vidico {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 32px; height: 32px;
+    background: rgba(0,0,0,.55);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .thumb .vidico::after {
+    content: '';
+    border: 8px solid transparent;
+    border-left: 14px solid rgba(255,255,255,.85);
+    margin-left: 3px;
+  }
+
+  /* ── DROP ZONE ── */
+  #drop-zone {
+    position: absolute; inset: var(--toolbar-h) 0 0 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px;
+    color: var(--text2);
+    pointer-events: none;
+  }
+  #drop-zone .dz-icon {
+    font-size: 48px; opacity: .3;
+  }
+  #drop-zone h2 { font-size: 18px; font-weight: 400; color: var(--text2); }
+
+  /* ── LIGHTBOX ── */
+  #lightbox {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.92);
+    z-index: 100;
+    flex-direction: column;
+  }
+  #lightbox.open { display: flex; }
+
+  #lb-topbar {
+    height: 48px;
+    background: rgba(0,0,0,.5);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px;
+    flex-shrink: 0;
+    backdrop-filter: blur(8px);
+  }
+  #lb-counter { color: var(--text2); font-size: 13px; }
+  #lb-name { color: var(--text); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-btn {
+    background: transparent;
+    border: 1px solid #555;
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background .1s;
+  }
+  .lb-btn:hover { background: #333; }
+  #lb-zoom-val { color: var(--text2); font-size: 12px; min-width: 42px; text-align: center; }
+
+  #lb-stage {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #lb-media {
+    position: absolute;
+    max-width: none;
+    max-height: none;
+    cursor: grab;
+    user-select: none;
+    transition: none;
+  }
+  #lb-media.dragging { cursor: grabbing; }
+  #lb-media img { display: block; }
+  #lb-media video { display: block; max-width: 90vw; max-height: calc(100vh - 120px); }
+
+  .lb-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(0,0,0,.5);
+    border: 1px solid #555;
+    color: #fff;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+    z-index: 5;
+    user-select: none;
+  }
+  .lb-nav:hover { background: rgba(200,169,110,.4); }
+  #lb-prev { left: 16px; }
+  #lb-next { right: 16px; }
+
+  #lb-bottombar {
+    height: 44px;
+    background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px;
+    flex-shrink: 0;
+    backdrop-filter: blur(8px);
+  }
+  #lb-hint { color: var(--text2); font-size: 12px; }
+
+  /* ── SLIDESHOW ── */
+  #slideshow {
+    display: none;
+    position: fixed; inset: 0;
+    background: #000;
+    z-index: 200;
+    flex-direction: column;
+  }
+  #slideshow.open { display: flex; }
+
+  #ss-topbar {
+    height: 48px;
+    background: rgba(0,0,0,.7);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px;
+    flex-shrink: 0;
+    position: absolute; top: 0; left: 0; right: 0;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  #slideshow:hover #ss-topbar { opacity: 1; }
+  #ss-counter { color: var(--text2); font-size: 13px; }
+  #ss-name { flex: 1; color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ss-btn {
+    background: transparent;
+    border: 1px solid #555;
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background .1s;
+  }
+  .ss-btn:hover { background: #333; }
+  #ss-auto-label { color: var(--text2); font-size: 12px; white-space: nowrap; }
+  #ss-interval { width: 70px; accent-color: var(--accent); }
+
+  #ss-stage {
+    flex: 1;
+    position: relative;
+    display: grid;
+  }
+  #ss-stage.mode-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  #ss-stage.mode-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; }
+  #ss-stage.mode-9 { grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); gap: 2px; }
+
+  .ss-cell {
+    overflow: hidden;
+    position: relative;
+    background: #111;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .ss-cell img, .ss-cell video {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+  .ss-cell .ss-vidico {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 40px; height: 40px;
+    background: rgba(0,0,0,.5);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .ss-cell .ss-vidico::after {
+    content: '';
+    border: 9px solid transparent;
+    border-left: 16px solid rgba(255,255,255,.8);
+    margin-left: 4px;
+  }
+
+  #ss-nav-prev, #ss-nav-next {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(0,0,0,.5);
+    border: 1px solid #555;
+    color: #fff;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity .3s, background .15s;
+  }
+  #slideshow:hover #ss-nav-prev,
+  #slideshow:hover #ss-nav-next { opacity: 1; }
+  #ss-nav-prev:hover, #ss-nav-next:hover { background: rgba(200,169,110,.4); }
+  #ss-nav-prev { left: 16px; }
+  #ss-nav-next { right: 16px; }
+
+  /* loading spinner */
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid #333;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    position: absolute;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* toast */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(30,30,30,.92);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity .3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <span class="logo">◆ Gallery</span>
+  <button id="folder-btn" class="tb-btn" onclick="openFolder()">📁 選取資料夾</button>
+  <div class="tb-sep"></div>
+  <span id="col-label">欄數：<span id="col-val">4</span></span>
+  <input id="col-slider" type="range" min="1" max="10" value="4" oninput="setCols(this.value)">
+  <div class="tb-sep"></div>
+  <button id="view-grid-btn" class="tb-btn active" onclick="setView('grid')">格狀</button>
+  <button id="view-ss1-btn" class="tb-btn" onclick="startSlideshow(1)">投影 ×1</button>
+  <button id="view-ss4-btn" class="tb-btn" onclick="startSlideshow(4)">投影 ×4</button>
+  <button id="view-ss9-btn" class="tb-btn" onclick="startSlideshow(9)">投影 ×9</button>
+  <div class="tb-sep"></div>
+  <span id="stats"></span>
+</div>
+
+<!-- MAIN GRID -->
+<div id="main">
+  <div id="drop-zone">
+    <div class="dz-icon">🖼</div>
+    <h2>請點擊「選取資料夾」以載入圖片與影片</h2>
+    <p style="color:#666;font-size:12px">支援 JPG / PNG / GIF / WEBP / MP4 / MOV / WEBM 等格式</p>
+  </div>
+  <div id="grid" style="--cols:4"></div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <div id="lb-topbar">
+    <span id="lb-counter"></span>
+    <span id="lb-name"></span>
+    <button class="lb-btn" onclick="lbZoom(-0.25)">－</button>
+    <span id="lb-zoom-val">100%</span>
+    <button class="lb-btn" onclick="lbZoom(0.25)">＋</button>
+    <button class="lb-btn" onclick="lbResetZoom()">重置</button>
+    <button class="lb-btn" id="lb-ss-btn" onclick="enterSlideshowFromLb()">▶ 投影</button>
+    <button class="lb-btn" onclick="closeLightbox()">✕ 關閉</button>
+  </div>
+  <div id="lb-stage">
+    <div id="lb-media"></div>
+    <button class="lb-nav" id="lb-prev" onclick="lbMove(-1)">‹</button>
+    <button class="lb-nav" id="lb-next" onclick="lbMove(1)">›</button>
+  </div>
+  <div id="lb-bottombar">
+    <span id="lb-hint"></span>
+  </div>
+</div>
+
+<!-- SLIDESHOW -->
+<div id="slideshow">
+  <div id="ss-topbar">
+    <span id="ss-counter"></span>
+    <span id="ss-name"></span>
+    <button class="ss-btn" id="ss-auto-btn" onclick="toggleAuto()">▶ 自動播放</button>
+    <span id="ss-auto-label">間隔</span>
+    <input id="ss-interval" type="range" min="1" max="10" value="3" oninput="ssIntervalSec=+this.value; document.getElementById('ss-iv-val').textContent=this.value+'s'">
+    <span id="ss-iv-val" style="color:var(--text2);font-size:12px">3s</span>
+    <button class="ss-btn" onclick="exitSlideshow()">✕ 離開</button>
+  </div>
+  <div id="ss-stage" class="mode-1"></div>
+  <button id="ss-nav-prev" onclick="ssMove(-1)">‹</button>
+  <button id="ss-nav-next" onclick="ssMove(1)">›</button>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+/* ── STATE ── */
+let files = [];          // {file, url, type:'image'|'video', name}
+let lbIndex = 0;
+let lbScale = 1;
+let lbX = 0, lbY = 0;
+let lbDragging = false, lbDx = 0, lbDy = 0;
+
+let ssIndex = 0;
+let ssMode = 1;          // 1, 4, 9
+let ssAuto = false;
+let ssIntervalSec = 3;
+let ssTimer = null;
+
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)$/i;
+const VIDEO_EXT = /\.(mp4|mov|webm|avi|mkv|m4v|ogv)$/i;
+
+/* ── FOLDER ── */
+async function openFolder() {
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'read' });
+    await loadDir(handle);
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('無法開啟資料夾：' + e.message);
+  }
+}
+
+async function loadDir(handle) {
+  const newFiles = [];
+  for await (const entry of handle.values()) {
+    if (entry.kind !== 'file') continue;
+    const name = entry.name;
+    if (!IMAGE_EXT.test(name) && !VIDEO_EXT.test(name)) continue;
+    const file = await entry.getFile();
+    const url = URL.createObjectURL(file);
+    newFiles.push({ file, url, name, type: VIDEO_EXT.test(name) ? 'video' : 'image' });
+  }
+  newFiles.sort((a,b) => a.name.localeCompare(b.name, 'zh-TW', {numeric:true}));
+  files = newFiles;
+  renderGrid();
+  document.getElementById('drop-zone').style.display = 'none';
+  updateStats();
+}
+
+function updateStats() {
+  const imgs = files.filter(f=>f.type==='image').length;
+  const vids = files.filter(f=>f.type==='video').length;
+  document.getElementById('stats').textContent = `共 ${files.length} 個 ｜ 圖 ${imgs} ／ 影 ${vids}`;
+}
+
+/* ── GRID ── */
+function setCols(v) {
+  document.getElementById('col-val').textContent = v;
+  document.getElementById('grid').style.setProperty('--cols', v);
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  files.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    div.onclick = () => openLightbox(i);
+    if (f.type === 'image') {
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.src = f.url;
+      img.alt = f.name;
+      div.appendChild(img);
+    } else {
+      // video: show first frame via canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = 200; canvas.height = 200;
+      div.appendChild(canvas);
+      const ico = document.createElement('div');
+      ico.className = 'vidico';
+      div.appendChild(ico);
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = '影片';
+      div.appendChild(badge);
+      const vid = document.createElement('video');
+      vid.src = f.url;
+      vid.muted = true;
+      vid.preload = 'metadata';
+      vid.addEventListener('loadeddata', () => {
+        vid.currentTime = 0.1;
+      });
+      vid.addEventListener('seeked', () => {
+        const ctx = canvas.getContext('2d');
+        canvas.width = vid.videoWidth || 200;
+        canvas.height = vid.videoHeight || 200;
+        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+      });
+    }
+    grid.appendChild(div);
+  });
+}
+
+/* ── LIGHTBOX ── */
+function openLightbox(idx) {
+  lbIndex = idx;
+  lbScale = 1; lbX = 0; lbY = 0;
+  document.getElementById('lightbox').classList.add('open');
+  renderLb();
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  const m = document.getElementById('lb-media');
+  const v = m.querySelector('video');
+  if (v) v.pause();
+  m.innerHTML = '';
+}
+
+function renderLb() {
+  if (!files.length) return;
+  const f = files[lbIndex];
+  const m = document.getElementById('lb-media');
+  const old = m.querySelector('video');
+  if (old) old.pause();
+  m.innerHTML = '';
+  lbX = 0; lbY = 0;
+  applyLbTransform();
+
+  if (f.type === 'image') {
+    const img = document.createElement('img');
+    img.src = f.url;
+    img.draggable = false;
+    img.style.cssText = 'display:block;max-width:90vw;max-height:calc(100vh - 120px);';
+    m.appendChild(img);
+    document.getElementById('lb-hint').textContent = '滑鼠滾輪縮放 ｜ 拖曳移動 ｜ ← → 切換';
+  } else {
+    const vid = document.createElement('video');
+    vid.src = f.url;
+    vid.controls = true;
+    vid.autoplay = true;
+    m.appendChild(vid);
+    document.getElementById('lb-hint').textContent = '← → 鍵：跳 ±3 秒 ｜ 點 < > 切換媒體';
+  }
+
+  document.getElementById('lb-counter').textContent = `${lbIndex+1} / ${files.length}`;
+  document.getElementById('lb-name').textContent = f.name;
+  updateLbZoomLabel();
+}
+
+function lbMove(dir) {
+  const v = document.getElementById('lb-media').querySelector('video');
+  if (v) v.pause();
+  lbIndex = (lbIndex + dir + files.length) % files.length;
+  lbScale = 1;
+  renderLb();
+}
+
+function lbZoom(delta) {
+  lbScale = Math.max(0.1, Math.min(10, lbScale + delta));
+  applyLbTransform();
+  updateLbZoomLabel();
+}
+
+function lbResetZoom() {
+  lbScale = 1; lbX = 0; lbY = 0;
+  applyLbTransform();
+  updateLbZoomLabel();
+}
+
+function applyLbTransform() {
+  document.getElementById('lb-media').style.transform =
+    `translate(${lbX}px, ${lbY}px) scale(${lbScale})`;
+}
+
+function updateLbZoomLabel() {
+  document.getElementById('lb-zoom-val').textContent = Math.round(lbScale*100) + '%';
+}
+
+// drag
+const lbStage = document.getElementById('lb-stage');
+lbStage.addEventListener('mousedown', e => {
+  if (e.target.classList.contains('lb-nav')) return;
+  lbDragging = true;
+  lbDx = e.clientX - lbX;
+  lbDy = e.clientY - lbY;
+  document.getElementById('lb-media').classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  if (!lbDragging) return;
+  lbX = e.clientX - lbDx;
+  lbY = e.clientY - lbDy;
+  applyLbTransform();
+});
+window.addEventListener('mouseup', () => {
+  lbDragging = false;
+  document.getElementById('lb-media').classList.remove('dragging');
+});
+
+// wheel zoom
+lbStage.addEventListener('wheel', e => {
+  e.preventDefault();
+  lbZoom(e.deltaY < 0 ? 0.15 : -0.15);
+}, {passive:false});
+
+// touch pinch
+let lastDist = 0;
+lbStage.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    lastDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, {passive:true});
+lbStage.addEventListener('touchmove', e => {
+  if (e.touches.length === 2) {
+    const d = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    lbZoom((d - lastDist) * 0.005);
+    lastDist = d;
+  }
+}, {passive:true});
+
+/* ── SLIDESHOW ── */
+function startSlideshow(mode) {
+  ssMode = mode;
+  ssIndex = 0;
+  if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
+  document.getElementById('ss-auto-btn').textContent = '▶ 自動播放';
+  const stage = document.getElementById('ss-stage');
+  stage.className = 'mode-' + mode;
+  document.getElementById('slideshow').classList.add('open');
+  renderSs();
+}
+
+function enterSlideshowFromLb() {
+  const idx = lbIndex;
+  closeLightbox();
+  ssMode = 1;
+  ssIndex = idx;
+  if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
+  const stage = document.getElementById('ss-stage');
+  stage.className = 'mode-1';
+  document.getElementById('slideshow').classList.add('open');
+  renderSs();
+}
+
+function exitSlideshow() {
+  if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
+  document.getElementById('ss-auto-btn').textContent = '▶ 自動播放';
+  pauseSsVideos();
+  document.getElementById('slideshow').classList.remove('open');
+}
+
+function pauseSsVideos() {
+  document.querySelectorAll('#ss-stage video').forEach(v => v.pause());
+}
+
+function renderSs() {
+  const stage = document.getElementById('ss-stage');
+  stage.innerHTML = '';
+  if (!files.length) return;
+
+  const count = ssMode;
+  const total = files.length;
+
+  for (let i = 0; i < count; i++) {
+    const idx = (ssIndex + i) % total;
+    const f = files[idx];
+    const cell = document.createElement('div');
+    cell.className = 'ss-cell';
+    cell.dataset.idx = idx;
+    cell.onclick = () => {
+      if (ssMode === 1) {
+        openLightbox(idx);
+        exitSlideshow();
+      } else {
+        ssIndex = idx;
+        ssMode = 1;
+        stage.className = 'mode-1';
+        renderSs();
+      }
+    };
+
+    if (f.type === 'image') {
+      const img = document.createElement('img');
+      img.src = f.url;
+      img.alt = f.name;
+      cell.appendChild(img);
+    } else {
+      // show first frame static
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;';
+      cell.appendChild(canvas);
+      const ico = document.createElement('div');
+      ico.className = 'ss-vidico';
+      cell.appendChild(ico);
+      const vid = document.createElement('video');
+      vid.src = f.url;
+      vid.muted = true;
+      vid.preload = 'metadata';
+      vid.addEventListener('loadeddata', () => { vid.currentTime = 0.1; });
+      vid.addEventListener('seeked', () => {
+        canvas.width = vid.videoWidth || 320;
+        canvas.height = vid.videoHeight || 240;
+        canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
+      });
+    }
+    stage.appendChild(cell);
+  }
+
+  const endIdx = (ssIndex + count - 1) % total;
+  document.getElementById('ss-counter').textContent =
+    count === 1 ? `${ssIndex+1} / ${total}` : `${ssIndex+1}–${endIdx+1} / ${total}`;
+  document.getElementById('ss-name').textContent = count === 1 ? files[ssIndex].name : '';
+}
+
+function ssMove(dir) {
+  pauseSsVideos();
+  ssIndex = (ssIndex + dir * ssMode + files.length * 10) % files.length;
+  renderSs();
+  if (ssAuto) resetAutoTimer();
+}
+
+function toggleAuto() {
+  ssAuto = !ssAuto;
+  document.getElementById('ss-auto-btn').textContent = ssAuto ? '⏸ 暫停' : '▶ 自動播放';
+  if (ssAuto) {
+    resetAutoTimer();
+  } else {
+    clearInterval(ssTimer);
+  }
+}
+
+function resetAutoTimer() {
+  clearInterval(ssTimer);
+  ssTimer = setInterval(() => ssMove(1), ssIntervalSec * 1000);
+}
+
+/* ── VIEW SWITCHING ── */
+function setView(v) {
+  document.getElementById('view-grid-btn').classList.toggle('active', v==='grid');
+}
+
+/* ── KEYBOARD ── */
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('lightbox').classList.contains('open');
+  const ss = document.getElementById('slideshow').classList.contains('open');
+
+  if (lb) {
+    const vid = document.getElementById('lb-media').querySelector('video');
+    if (e.key === 'ArrowLeft') {
+      if (vid) { vid.currentTime = Math.max(0, vid.currentTime - 3); }
+      else lbMove(-1);
+    } else if (e.key === 'ArrowRight') {
+      if (vid) { vid.currentTime = Math.min(vid.duration || 99999, vid.currentTime + 3); }
+      else lbMove(1);
+    } else if (e.key === 'Escape') closeLightbox();
+    else if (e.key === '+' || e.key === '=') lbZoom(0.25);
+    else if (e.key === '-') lbZoom(-0.25);
+    e.preventDefault();
+  } else if (ss) {
+    if (e.key === 'ArrowLeft') ssMove(-1);
+    else if (e.key === 'ArrowRight') ssMove(1);
+    else if (e.key === 'Escape') exitSlideshow();
+    else if (e.key === ' ') toggleAuto();
+    e.preventDefault();
+  }
+});
+
+/* ── TOAST ── */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+/* ── DRAG & DROP FOLDER ── */
+document.getElementById('main').addEventListener('dragover', e => e.preventDefault());
+document.getElementById('main').addEventListener('drop', async e => {
+  e.preventDefault();
+  const items = [...e.dataTransfer.items];
+  for (const item of items) {
+    if (item.kind === 'file') {
+      try {
+        const handle = await item.getAsFileSystemHandle();
+        if (handle.kind === 'directory') { await loadDir(handle); return; }
+      } catch {}
+    }
+  }
+  toast('請拖曳資料夾而非單一檔案');
+});
+</script>
+</body>
+</html>
