@@ -16,6 +16,7 @@
     --accent2: #a08040;
     --radius: 6px;
     --toolbar-h: 52px;
+    --pathbar-h: 32px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -76,6 +77,28 @@
   #col-slider { width: 90px; accent-color: var(--accent); }
 
   #stats { color: var(--text2); font-size: 12px; margin-left: auto; white-space: nowrap; }
+
+  /* ── SUBFOLDER TILES ── */
+  #subfolders {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px 4px;
+  }
+  #subfolders.visible { display: flex; }
+  .folder-tile {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: background .15s, border-color .15s, color .15s;
+    white-space: nowrap;
+  }
+  .folder-tile:hover { background: var(--bg2); border-color: var(--accent); color: var(--text); }
 
   /* ── MAIN ── */
   #main {
@@ -169,6 +192,45 @@
     z-index: 2;
   }
   .thumb:hover .vid-preview { opacity: 1; }
+
+  /* ── PATHBAR ── */
+  #pathbar {
+    height: var(--pathbar-h);
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    display: none;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text2);
+    overflow: hidden;
+  }
+  #pathbar.visible { display: flex; }
+  #pathbar-back {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 2px 8px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  #pathbar-back:hover { background: var(--bg2); color: var(--text); }
+  #pathbar-back:disabled { opacity: .3; cursor: default; }
+  #pathbar-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text2);
+  }
+  #pathbar-path .sep { margin: 0 5px; opacity: .4; }
+  #pathbar-path .seg { color: var(--text); }
+  #pathbar-path .seg:last-child { color: var(--accent); }
 
   /* ── DROP ZONE ── */
   #drop-zone {
@@ -423,6 +485,15 @@
   <span id="stats"></span>
 </div>
 
+<!-- PATHBAR -->
+<div id="pathbar">
+  <button id="pathbar-back" onclick="navBack()" disabled>← 返回</button>
+  <span id="pathbar-path"></span>
+</div>
+
+<!-- SUBFOLDERS -->
+<div id="subfolders"></div>
+
 <!-- MAIN GRID -->
 <div id="main">
   <div id="drop-zone">
@@ -491,20 +562,42 @@ let ssTimer = null;
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|avi|mkv|m4v|ogv)$/i;
 
+/* ── FOLDER NAV STATE ── */
+let rootHandle = null;
+let navStack = [];   // array of {handle, name}
+
 /* ── FOLDER ── */
 async function openFolder() {
   try {
     const handle = await window.showDirectoryPicker({ mode: 'read' });
+    rootHandle = handle;
+    navStack = [{ handle, name: handle.name }];
     await loadDir(handle);
   } catch(e) {
     if (e.name !== 'AbortError') toast('無法開啟資料夾：' + e.message);
   }
 }
 
+async function navInto(handle, name) {
+  navStack.push({ handle, name });
+  await loadDir(handle);
+}
+
+async function navBack() {
+  if (navStack.length <= 1) return;
+  navStack.pop();
+  await loadDir(navStack[navStack.length - 1].handle);
+}
+
 async function loadDir(handle) {
   const newFiles = [];
+  const subDirs = [];
+
   for await (const entry of handle.values()) {
-    if (entry.kind !== 'file') continue;
+    if (entry.kind === 'directory') {
+      subDirs.push({ handle: entry, name: entry.name });
+      continue;
+    }
     const name = entry.name;
     if (!IMAGE_EXT.test(name) && !VIDEO_EXT.test(name)) continue;
     const file = await entry.getFile();
@@ -512,11 +605,48 @@ async function loadDir(handle) {
     newFiles.push({ file, url, name, type: VIDEO_EXT.test(name) ? 'video' : 'image',
       lastModified: file.lastModified, size: file.size });
   }
+
   newFiles.sort((a,b) => a.name.localeCompare(b.name, 'zh-TW', {numeric:true}));
+  subDirs.sort((a,b) => a.name.localeCompare(b.name, 'zh-TW', {numeric:true}));
+
   files = newFiles;
+  renderPathbar();
+  renderSubfolders(subDirs);
   applySort();
   document.getElementById('drop-zone').style.display = 'none';
   updateStats();
+}
+
+function renderPathbar() {
+  const bar = document.getElementById('pathbar');
+  const pathEl = document.getElementById('pathbar-path');
+  const backBtn = document.getElementById('pathbar-back');
+  bar.classList.add('visible');
+  backBtn.disabled = navStack.length <= 1;
+
+  pathEl.innerHTML = navStack.map((seg, i) => {
+    const isLast = i === navStack.length - 1;
+    const sep = i > 0 ? '<span class="sep">/</span>' : '';
+    return `${sep}<span class="seg">${escHtml(seg.name)}</span>`;
+  }).join('');
+}
+
+function renderSubfolders(dirs) {
+  const el = document.getElementById('subfolders');
+  el.innerHTML = '';
+  if (dirs.length === 0) { el.classList.remove('visible'); return; }
+  el.classList.add('visible');
+  dirs.forEach(d => {
+    const tile = document.createElement('button');
+    tile.className = 'folder-tile';
+    tile.innerHTML = `📁 ${escHtml(d.name)}`;
+    tile.onclick = () => navInto(d.handle, d.name);
+    el.appendChild(tile);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function applySort() {
@@ -657,7 +787,10 @@ function renderLb() {
   }
 
   document.getElementById('lb-counter').textContent = `${lbIndex+1} / ${files.length}`;
-  document.getElementById('lb-name').textContent = f.name;
+  // build full path: root/.../currentFolder/filename
+  const pathSegs = navStack.map(s => s.name);
+  pathSegs.push(f.name);
+  document.getElementById('lb-name').textContent = pathSegs.join(' / ');
   updateLbZoomLabel();
 }
 
