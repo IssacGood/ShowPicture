@@ -103,11 +103,16 @@
     border: 1px solid var(--border);
     transition: transform .15s, border-color .15s;
   }
+  #grid.fit-full .thumb { aspect-ratio: unset; }
   .thumb:hover { transform: scale(1.02); border-color: var(--accent); }
   .thumb img {
     width: 100%; height: 100%;
     object-fit: cover;
     display: block;
+  }
+  #grid.fit-full .thumb img {
+    height: auto;
+    object-fit: unset;
   }
   .thumb .badge {
     position: absolute; bottom: 4px; right: 4px;
@@ -135,7 +140,15 @@
     border-left: 14px solid rgba(255,255,255,.85);
     margin-left: 3px;
   }
-  .thumb:hover .vidico { opacity: 0; }
+  #grid.fit-full .thumb .vid-canvas {
+    height: auto;
+    object-fit: unset;
+  }
+  #grid.fit-full .thumb .vid-preview {
+    height: auto;
+    object-fit: unset;
+    position: relative;
+  }
   /* static first-frame canvas */
   .thumb .vid-canvas {
     position: absolute; inset: 0;
@@ -383,11 +396,23 @@
   <div class="tb-sep"></div>
   <span id="col-label">欄數：<span id="col-val">4</span></span>
   <input id="col-slider" type="range" min="1" max="10" value="4" oninput="setCols(this.value)">
+  <button id="fit-btn" class="tb-btn" onclick="toggleFit()" title="切換完整顯示／裁切填滿">裁切</button>
   <div class="tb-sep"></div>
   <button id="view-grid-btn" class="tb-btn active" onclick="setView('grid')">格狀</button>
   <button id="view-ss1-btn" class="tb-btn" onclick="startSlideshow(1)">投影 ×1</button>
   <button id="view-ss4-btn" class="tb-btn" onclick="startSlideshow(4)">投影 ×4</button>
   <button id="view-ss9-btn" class="tb-btn" onclick="startSlideshow(9)">投影 ×9</button>
+  <div class="tb-sep"></div>
+  <select id="sort-select" onchange="applySort()" title="排序方式" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:13px;cursor:pointer;outline:none;">
+    <option value="name-asc">檔名 A→Z</option>
+    <option value="name-desc">檔名 Z→A</option>
+    <option value="date-desc">日期 新→舊</option>
+    <option value="date-asc">日期 舊→新</option>
+    <option value="size-desc">大小 大→小</option>
+    <option value="size-asc">大小 小→大</option>
+    <option value="type-img">類型 圖片優先</option>
+    <option value="type-vid">類型 影片優先</option>
+  </select>
   <div class="tb-sep"></div>
   <span id="stats"></span>
 </div>
@@ -478,16 +503,41 @@ async function loadDir(handle) {
     if (!IMAGE_EXT.test(name) && !VIDEO_EXT.test(name)) continue;
     const file = await entry.getFile();
     const url = URL.createObjectURL(file);
-    newFiles.push({ file, url, name, type: VIDEO_EXT.test(name) ? 'video' : 'image' });
+    newFiles.push({ file, url, name, type: VIDEO_EXT.test(name) ? 'video' : 'image',
+      lastModified: file.lastModified, size: file.size });
   }
   newFiles.sort((a,b) => a.name.localeCompare(b.name, 'zh-TW', {numeric:true}));
   files = newFiles;
-  renderGrid();
+  applySort();
   document.getElementById('drop-zone').style.display = 'none';
   updateStats();
 }
 
-function updateStats() {
+function applySort() {
+  const val = document.getElementById('sort-select').value;
+  const [key, dir] = val.split('-');
+  files.sort((a, b) => {
+    let r = 0;
+    if (key === 'name') {
+      r = a.name.localeCompare(b.name, 'zh-TW', {numeric:true});
+    } else if (key === 'date') {
+      r = a.lastModified - b.lastModified;
+    } else if (key === 'size') {
+      r = a.size - b.size;
+    } else if (key === 'type') {
+      const av = a.type === 'video' ? 1 : 0;
+      const bv = b.type === 'video' ? 1 : 0;
+      r = dir === 'img' ? av - bv : bv - av;
+      if (r === 0) r = a.name.localeCompare(b.name, 'zh-TW', {numeric:true});
+      return r;
+    }
+    return dir === 'desc' ? -r : r;
+  });
+  renderGrid();
+  toast('排序：' + document.getElementById('sort-select').selectedOptions[0].text);
+}
+
+
   const imgs = files.filter(f=>f.type==='image').length;
   const vids = files.filter(f=>f.type==='video').length;
   document.getElementById('stats').textContent = `共 ${files.length} 個 ｜ 圖 ${imgs} ／ 影 ${vids}`;
@@ -636,10 +686,13 @@ function updateLbZoomLabel() {
 // drag
 const lbStage = document.getElementById('lb-stage');
 let lbDidDrag = false;
+let lbMouseDownX = 0, lbMouseDownY = 0;
 lbStage.addEventListener('mousedown', e => {
   if (e.target.classList.contains('lb-nav')) return;
   lbDragging = true;
   lbDidDrag = false;
+  lbMouseDownX = e.clientX;
+  lbMouseDownY = e.clientY;
   lbDx = e.clientX - lbX;
   lbDy = e.clientY - lbY;
   document.getElementById('lb-media').classList.add('dragging');
@@ -650,7 +703,9 @@ lbStage.addEventListener('click', e => {
 });
 window.addEventListener('mousemove', e => {
   if (!lbDragging) return;
-  lbDidDrag = true;
+  const dx = e.clientX - lbMouseDownX;
+  const dy = e.clientY - lbMouseDownY;
+  if (Math.hypot(dx, dy) > 5) lbDidDrag = true;
   lbX = e.clientX - lbDx;
   lbY = e.clientY - lbDy;
   applyLbTransform();
@@ -794,6 +849,23 @@ function toggleAuto() {
 function resetAutoTimer() {
   clearInterval(ssTimer);
   ssTimer = setInterval(() => ssMove(1), ssIntervalSec * 1000);
+}
+
+/* ── FIT TOGGLE ── */
+let fitMode = 'crop';
+function toggleFit() {
+  fitMode = fitMode === 'crop' ? 'full' : 'crop';
+  const grid = document.getElementById('grid');
+  const btn = document.getElementById('fit-btn');
+  if (fitMode === 'full') {
+    grid.classList.add('fit-full');
+    btn.textContent = '完整';
+    btn.classList.add('active');
+  } else {
+    grid.classList.remove('fit-full');
+    btn.textContent = '裁切';
+    btn.classList.remove('active');
+  }
 }
 
 /* ── VIEW SWITCHING ── */
