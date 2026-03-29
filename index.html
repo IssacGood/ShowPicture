@@ -537,6 +537,7 @@
     <span id="ss-auto-label">間隔</span>
     <input id="ss-interval" type="range" min="1" max="10" value="3" oninput="ssIntervalSec=+this.value; document.getElementById('ss-iv-val').textContent=this.value+'s'">
     <span id="ss-iv-val" style="color:var(--text2);font-size:12px">3s</span>
+    <button class="ss-btn" id="ss-mute-btn" onclick="toggleSsMute()">🔇 靜音中</button>
     <button class="ss-btn" onclick="exitSlideshow()">✕ 離開</button>
   </div>
   <div id="ss-stage" class="mode-1"></div>
@@ -560,6 +561,7 @@ let ssMode = 1;          // 1, 4, 9
 let ssAuto = false;
 let ssIntervalSec = 3;
 let ssTimer = null;
+let ssMuted = false;     // false = 嘗試有聲，true = 確定靜音
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|avi|mkv|m4v|ogv)$/i;
@@ -888,8 +890,10 @@ lbStage.addEventListener('touchmove', e => {
 function startSlideshow(mode) {
   ssMode = mode;
   ssIndex = 0;
+  ssMuted = false;
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
   document.getElementById('ss-auto-btn').textContent = '▶ 自動播放';
+  updateMuteBtn();
   const stage = document.getElementById('ss-stage');
   stage.className = 'mode-' + mode;
   document.getElementById('slideshow').classList.add('open');
@@ -901,7 +905,9 @@ function enterSlideshowFromLb() {
   closeLightbox();
   ssMode = 1;
   ssIndex = idx;
+  ssMuted = false;
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
+  updateMuteBtn();
   const stage = document.getElementById('ss-stage');
   stage.className = 'mode-1';
   document.getElementById('slideshow').classList.add('open');
@@ -913,6 +919,18 @@ function exitSlideshow() {
   document.getElementById('ss-auto-btn').textContent = '▶ 自動播放';
   pauseSsVideos();
   document.getElementById('slideshow').classList.remove('open');
+}
+
+function toggleSsMute() {
+  ssMuted = !ssMuted;
+  document.querySelectorAll('#ss-stage video').forEach(v => { v.muted = ssMuted; });
+  updateMuteBtn();
+}
+
+function updateMuteBtn() {
+  const btn = document.getElementById('ss-mute-btn');
+  if (!btn) return;
+  btn.textContent = ssMuted ? '🔇 靜音中' : '🔊 有聲';
 }
 
 function pauseSsVideos() {
@@ -947,13 +965,19 @@ function renderSs() {
       // autoplay video in slideshow
       const vid = document.createElement('video');
       vid.src = f.url;
-      vid.muted = true;
+      vid.muted = ssMuted;
       vid.loop = true;
       vid.autoplay = true;
       vid.playsInline = true;
       vid.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
       cell.appendChild(vid);
-      vid.play().catch(()=>{});
+      vid.play().catch(() => {
+        // browser blocked unmuted autoplay → fallback to muted
+        vid.muted = true;
+        ssMuted = true;
+        updateMuteBtn();
+        vid.play().catch(()=>{});
+      });
     }
     stage.appendChild(cell);
   }
