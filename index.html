@@ -104,7 +104,7 @@
     transition: transform .15s, border-color .15s;
   }
   .thumb:hover { transform: scale(1.02); border-color: var(--accent); }
-  .thumb img, .thumb canvas {
+  .thumb img {
     width: 100%; height: 100%;
     object-fit: cover;
     display: block;
@@ -116,6 +116,7 @@
     font-size: 10px;
     padding: 1px 5px;
     border-radius: 3px;
+    z-index: 3;
   }
   .thumb .vidico {
     position: absolute; top: 50%; left: 50%;
@@ -125,6 +126,8 @@
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     pointer-events: none;
+    transition: opacity .25s;
+    z-index: 3;
   }
   .thumb .vidico::after {
     content: '';
@@ -132,6 +135,27 @@
     border-left: 14px solid rgba(255,255,255,.85);
     margin-left: 3px;
   }
+  .thumb:hover .vidico { opacity: 0; }
+  /* static first-frame canvas */
+  .thumb .vid-canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    transition: opacity .25s;
+  }
+  .thumb:hover .vid-canvas { opacity: 0; }
+  /* hover preview video */
+  .thumb .vid-preview {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity .25s;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .thumb:hover .vid-preview { opacity: 1; }
 
   /* ── DROP ZONE ── */
   #drop-zone {
@@ -489,10 +513,21 @@ function renderGrid() {
       img.alt = f.name;
       div.appendChild(img);
     } else {
-      // video: show first frame via canvas
+      // canvas for first frame
       const canvas = document.createElement('canvas');
+      canvas.className = 'vid-canvas';
       canvas.width = 200; canvas.height = 200;
       div.appendChild(canvas);
+
+      // hover video preview
+      const preview = document.createElement('video');
+      preview.className = 'vid-preview';
+      preview.src = f.url;
+      preview.muted = true;
+      preview.loop = true;
+      preview.preload = 'metadata';
+      div.appendChild(preview);
+
       const ico = document.createElement('div');
       ico.className = 'vidico';
       div.appendChild(ico);
@@ -500,19 +535,23 @@ function renderGrid() {
       badge.className = 'badge';
       badge.textContent = '影片';
       div.appendChild(badge);
-      const vid = document.createElement('video');
-      vid.src = f.url;
-      vid.muted = true;
-      vid.preload = 'metadata';
-      vid.addEventListener('loadeddata', () => {
-        vid.currentTime = 0.1;
-      });
-      vid.addEventListener('seeked', () => {
+
+      // draw first frame
+      const tmpVid = document.createElement('video');
+      tmpVid.src = f.url;
+      tmpVid.muted = true;
+      tmpVid.preload = 'metadata';
+      tmpVid.addEventListener('loadeddata', () => { tmpVid.currentTime = 0.1; });
+      tmpVid.addEventListener('seeked', () => {
         const ctx = canvas.getContext('2d');
-        canvas.width = vid.videoWidth || 200;
-        canvas.height = vid.videoHeight || 200;
-        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        canvas.width = tmpVid.videoWidth || 200;
+        canvas.height = tmpVid.videoHeight || 200;
+        ctx.drawImage(tmpVid, 0, 0, canvas.width, canvas.height);
       });
+
+      // hover events
+      div.addEventListener('mouseenter', () => { preview.play().catch(()=>{}); });
+      div.addEventListener('mouseleave', () => { preview.pause(); preview.currentTime = 0; });
     }
     grid.appendChild(div);
   });
@@ -596,15 +635,22 @@ function updateLbZoomLabel() {
 
 // drag
 const lbStage = document.getElementById('lb-stage');
+let lbDidDrag = false;
 lbStage.addEventListener('mousedown', e => {
   if (e.target.classList.contains('lb-nav')) return;
   lbDragging = true;
+  lbDidDrag = false;
   lbDx = e.clientX - lbX;
   lbDy = e.clientY - lbY;
   document.getElementById('lb-media').classList.add('dragging');
 });
+lbStage.addEventListener('click', e => {
+  if (lbDidDrag) return;
+  if (e.target === lbStage) closeLightbox();
+});
 window.addEventListener('mousemove', e => {
   if (!lbDragging) return;
+  lbDidDrag = true;
   lbX = e.clientX - lbDx;
   lbY = e.clientY - lbDy;
   applyLbTransform();
@@ -691,15 +737,8 @@ function renderSs() {
     cell.className = 'ss-cell';
     cell.dataset.idx = idx;
     cell.onclick = () => {
-      if (ssMode === 1) {
-        openLightbox(idx);
-        exitSlideshow();
-      } else {
-        ssIndex = idx;
-        ssMode = 1;
-        stage.className = 'mode-1';
-        renderSs();
-      }
+      exitSlideshow();
+      openLightbox(idx);
     };
 
     if (f.type === 'image') {
