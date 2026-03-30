@@ -487,6 +487,10 @@
   <button id="view-ss4-btn" class="tb-btn" onclick="startSlideshow(4)">投影 ×4</button>
   <button id="view-ss9-btn" class="tb-btn" onclick="startSlideshow(9)">投影 ×9</button>
   <div class="tb-sep"></div>
+  <button id="filter-all-btn" class="tb-btn active" onclick="setFilter('all')">全部</button>
+  <button id="filter-img-btn" class="tb-btn" onclick="setFilter('image')">純照片</button>
+  <button id="filter-vid-btn" class="tb-btn" onclick="setFilter('video')">純影片</button>
+  <div class="tb-sep"></div>
   <select id="sort-select" onchange="applySort()" title="排序方式" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:13px;cursor:pointer;outline:none;">
     <option value="name-asc">檔名 A→Z</option>
     <option value="name-desc">檔名 Z→A</option>
@@ -569,6 +573,7 @@
 <script>
 /* ── STATE ── */
 let files = [];          // {file, url, type:'image'|'video', name}
+let filterMode = 'all';  // 'all' | 'image' | 'video'
 let lbIndex = 0;
 let lbScale = 1;
 let lbX = 0, lbY = 0;
@@ -671,7 +676,18 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function applySort() {
+function setFilter(mode) {
+  filterMode = mode;
+  document.getElementById('filter-all-btn').classList.toggle('active', mode === 'all');
+  document.getElementById('filter-img-btn').classList.toggle('active', mode === 'image');
+  document.getElementById('filter-vid-btn').classList.toggle('active', mode === 'video');
+  renderGrid();
+}
+
+function filteredFiles() {
+  if (filterMode === 'all') return files;
+  return files.filter(f => f.type === filterMode);
+}
   const val = document.getElementById('sort-select').value;
   const [key, dir] = val.split('-');
   files.sort((a, b) => {
@@ -773,10 +789,11 @@ function renderGrid() {
     });
   }, { rootMargin: '300px' });
 
-  files.forEach((f, i) => {
+  const flist = filteredFiles();
+  flist.forEach((f, i) => {
     const div = document.createElement('div');
     div.className = 'thumb';
-    div.onclick = () => openLightbox(i);
+    div.onclick = () => openLightboxFiltered(i);
 
     if (f.type === 'image') {
       const img = document.createElement('img');
@@ -831,11 +848,18 @@ function renderGrid() {
 }
 
 /* ── LIGHTBOX ── */
-function openLightbox(idx) {
+function openLightboxFiltered(idx) {
   lbIndex = idx;
   lbScale = 1; lbX = 0; lbY = 0;
   document.getElementById('lightbox').classList.add('open');
   renderLb();
+}
+
+function openLightbox(idx) {
+  // legacy: idx is index into full files array, convert to filtered index
+  const flist = filteredFiles();
+  const fi = flist.indexOf(files[idx]);
+  openLightboxFiltered(fi >= 0 ? fi : 0);
 }
 
 function closeLightbox() {
@@ -847,8 +871,9 @@ function closeLightbox() {
 }
 
 function renderLb() {
-  if (!files.length) return;
-  const f = files[lbIndex];
+  const flist = filteredFiles();
+  if (!flist.length) return;
+  const f = flist[lbIndex];
   const m = document.getElementById('lb-media');
   const old = m.querySelector('video');
   if (old) old.pause();
@@ -869,11 +894,19 @@ function renderLb() {
     vid.controls = true;
     vid.autoplay = true;
     m.appendChild(vid);
+    // detect no-video-track (e.g. HEVC)
+    vid.addEventListener('playing', () => {
+      setTimeout(() => {
+        if (vid.videoWidth === 0 && !vid.paused) {
+          document.getElementById('lb-hint').textContent =
+            '⚠️ 此影片無法顯示畫面（可能為 H.265/HEVC 格式，Chrome 不支援）';
+        }
+      }, 800);
+    });
     document.getElementById('lb-hint').textContent = '← → 鍵：跳 ±3 秒 ｜ 點 < > 切換媒體';
   }
 
-  document.getElementById('lb-counter').textContent = `${lbIndex+1} / ${files.length}`;
-  // build full path: root/.../currentFolder/filename
+  document.getElementById('lb-counter').textContent = `${lbIndex+1} / ${flist.length}`;
   const pathSegs = navStack.map(s => s.name);
   pathSegs.push(f.name);
   document.getElementById('lb-name').textContent = pathSegs.join(' / ');
@@ -883,7 +916,8 @@ function renderLb() {
 function lbMove(dir) {
   const v = document.getElementById('lb-media').querySelector('video');
   if (v) v.pause();
-  lbIndex = (lbIndex + dir + files.length) % files.length;
+  const flist = filteredFiles();
+  lbIndex = (lbIndex + dir + flist.length) % flist.length;
   lbScale = 1;
   renderLb();
 }
