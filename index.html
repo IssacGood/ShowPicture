@@ -688,6 +688,8 @@ function filteredFiles() {
   if (filterMode === 'all') return files;
   return files.filter(f => f.type === filterMode);
 }
+
+function applySort() {
   const val = document.getElementById('sort-select').value;
   const [key, dir] = val.split('-');
   files.sort((a, b) => {
