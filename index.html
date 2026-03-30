@@ -193,6 +193,20 @@
   }
   .thumb:hover .vid-preview { opacity: 1; }
 
+  /* thumbnail loading spinner */
+  .thumb .vid-spinner {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 22px; height: 22px;
+    border: 2px solid rgba(255,255,255,.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    z-index: 4;
+    pointer-events: none;
+  }
+  .thumb .vid-spinner.done { display: none; }
+
   /* ── PATHBAR ── */
   #pathbar {
     height: var(--pathbar-h);
@@ -694,38 +708,70 @@ function setCols(v) {
   document.getElementById('grid').style.setProperty('--cols', v);
 }
 
+/* ── VIDEO THUMB QUEUE (max 3 concurrent decoders) ── */
+const THUMB_CONCURRENCY = 3;
+let thumbActive = 0;
+const thumbQueue = [];
+
+function thumbEnqueue(task) {
+  thumbQueue.push(task);
+  thumbDrain();
+}
+
+function thumbDrain() {
+  while (thumbActive < THUMB_CONCURRENCY && thumbQueue.length > 0) {
+    const task = thumbQueue.shift();
+    thumbActive++;
+    task().finally(() => {
+      thumbActive--;
+      thumbDrain();
+    });
+  }
+}
+
+function captureFirstFrame(url, canvas, spinner) {
+  return new Promise(resolve => {
+    const vid = document.createElement('video');
+    vid.src = url;
+    vid.muted = true;
+    vid.preload = 'metadata';
+    const cleanup = () => {
+      vid.src = '';
+      if (spinner) spinner.classList.add('done');
+      resolve();
+    };
+    vid.addEventListener('loadeddata', () => { vid.currentTime = 0.1; });
+    vid.addEventListener('seeked', () => {
+      if (canvas) {
+        canvas.width = vid.videoWidth || 200;
+        canvas.height = vid.videoHeight || 200;
+        canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
+      }
+      cleanup();
+    });
+    vid.addEventListener('error', cleanup);
+    setTimeout(cleanup, 8000); // failsafe timeout
+  });
+}
+
 function renderGrid() {
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
+  thumbQueue.length = 0; // clear pending queue on re-render
 
-  // IntersectionObserver: only load video thumbnails when visible
-  const thumbObserver = new IntersectionObserver((entries) => {
+  const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
       const div = entry.target;
       if (div.dataset.loaded) return;
       div.dataset.loaded = '1';
-      thumbObserver.unobserve(div);
-
+      observer.unobserve(div);
       const url = div.dataset.url;
       const canvas = div.querySelector('.vid-canvas');
-
-      // draw first frame via a short-lived video
-      const tmpVid = document.createElement('video');
-      tmpVid.src = url;
-      tmpVid.muted = true;
-      tmpVid.preload = 'metadata';
-      tmpVid.addEventListener('loadeddata', () => { tmpVid.currentTime = 0.1; });
-      tmpVid.addEventListener('seeked', () => {
-        if (canvas) {
-          canvas.width = tmpVid.videoWidth || 200;
-          canvas.height = tmpVid.videoHeight || 200;
-          canvas.getContext('2d').drawImage(tmpVid, 0, 0, canvas.width, canvas.height);
-        }
-        tmpVid.src = '';  // release immediately after capture
-      });
+      const spinner = div.querySelector('.vid-spinner');
+      thumbEnqueue(() => captureFirstFrame(url, canvas, spinner));
     });
-  }, { rootMargin: '200px' });
+  }, { rootMargin: '300px' });
 
   files.forEach((f, i) => {
     const div = document.createElement('div');
@@ -739,11 +785,14 @@ function renderGrid() {
       img.alt = f.name;
       div.appendChild(img);
     } else {
-      // canvas placeholder (filled lazily when visible)
       const canvas = document.createElement('canvas');
       canvas.className = 'vid-canvas';
       canvas.width = 4; canvas.height = 3;
       div.appendChild(canvas);
+
+      const spinner = document.createElement('div');
+      spinner.className = 'vid-spinner';
+      div.appendChild(spinner);
 
       const ico = document.createElement('div');
       ico.className = 'vidico';
@@ -754,11 +803,10 @@ function renderGrid() {
       badge.textContent = '影片';
       div.appendChild(badge);
 
-      // store url for lazy loader
       div.dataset.url = f.url;
-      thumbObserver.observe(div);
+      observer.observe(div);
 
-      // hover preview: create video only on first mouseenter
+      // hover preview: lazy-create on first mouseenter
       let previewReady = false;
       div.addEventListener('mouseenter', () => {
         if (!previewReady) {
