@@ -697,10 +697,41 @@ function setCols(v) {
 function renderGrid() {
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
+
+  // IntersectionObserver: only load video thumbnails when visible
+  const thumbObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const div = entry.target;
+      if (div.dataset.loaded) return;
+      div.dataset.loaded = '1';
+      thumbObserver.unobserve(div);
+
+      const url = div.dataset.url;
+      const canvas = div.querySelector('.vid-canvas');
+
+      // draw first frame via a short-lived video
+      const tmpVid = document.createElement('video');
+      tmpVid.src = url;
+      tmpVid.muted = true;
+      tmpVid.preload = 'metadata';
+      tmpVid.addEventListener('loadeddata', () => { tmpVid.currentTime = 0.1; });
+      tmpVid.addEventListener('seeked', () => {
+        if (canvas) {
+          canvas.width = tmpVid.videoWidth || 200;
+          canvas.height = tmpVid.videoHeight || 200;
+          canvas.getContext('2d').drawImage(tmpVid, 0, 0, canvas.width, canvas.height);
+        }
+        tmpVid.src = '';  // release immediately after capture
+      });
+    });
+  }, { rootMargin: '200px' });
+
   files.forEach((f, i) => {
     const div = document.createElement('div');
     div.className = 'thumb';
     div.onclick = () => openLightbox(i);
+
     if (f.type === 'image') {
       const img = document.createElement('img');
       img.loading = 'lazy';
@@ -708,45 +739,44 @@ function renderGrid() {
       img.alt = f.name;
       div.appendChild(img);
     } else {
-      // canvas for first frame
+      // canvas placeholder (filled lazily when visible)
       const canvas = document.createElement('canvas');
       canvas.className = 'vid-canvas';
-      canvas.width = 200; canvas.height = 200;
+      canvas.width = 4; canvas.height = 3;
       div.appendChild(canvas);
-
-      // hover video preview
-      const preview = document.createElement('video');
-      preview.className = 'vid-preview';
-      preview.src = f.url;
-      preview.muted = true;
-      preview.loop = true;
-      preview.preload = 'metadata';
-      div.appendChild(preview);
 
       const ico = document.createElement('div');
       ico.className = 'vidico';
       div.appendChild(ico);
+
       const badge = document.createElement('span');
       badge.className = 'badge';
       badge.textContent = '影片';
       div.appendChild(badge);
 
-      // draw first frame
-      const tmpVid = document.createElement('video');
-      tmpVid.src = f.url;
-      tmpVid.muted = true;
-      tmpVid.preload = 'metadata';
-      tmpVid.addEventListener('loadeddata', () => { tmpVid.currentTime = 0.1; });
-      tmpVid.addEventListener('seeked', () => {
-        const ctx = canvas.getContext('2d');
-        canvas.width = tmpVid.videoWidth || 200;
-        canvas.height = tmpVid.videoHeight || 200;
-        ctx.drawImage(tmpVid, 0, 0, canvas.width, canvas.height);
-      });
+      // store url for lazy loader
+      div.dataset.url = f.url;
+      thumbObserver.observe(div);
 
-      // hover events
-      div.addEventListener('mouseenter', () => { preview.play().catch(()=>{}); });
-      div.addEventListener('mouseleave', () => { preview.pause(); preview.currentTime = 0; });
+      // hover preview: create video only on first mouseenter
+      let previewReady = false;
+      div.addEventListener('mouseenter', () => {
+        if (!previewReady) {
+          previewReady = true;
+          const preview = document.createElement('video');
+          preview.className = 'vid-preview';
+          preview.src = f.url;
+          preview.muted = true;
+          preview.loop = true;
+          preview.preload = 'none';
+          div.appendChild(preview);
+          preview.play().catch(()=>{});
+          div.addEventListener('mouseleave', () => { preview.pause(); preview.currentTime = 0; });
+        } else {
+          const preview = div.querySelector('.vid-preview');
+          if (preview) preview.play().catch(()=>{});
+        }
+      });
     }
     grid.appendChild(div);
   });
