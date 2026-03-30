@@ -533,6 +533,10 @@
   <div id="ss-topbar">
     <span id="ss-counter"></span>
     <span id="ss-name"></span>
+    <span id="ss-step-btns" style="display:none;gap:4px;display:none;align-items:center;">
+      <button class="ss-btn" onclick="ssStep(-1)">‹ 退一張</button>
+      <button class="ss-btn" onclick="ssStep(1)">進一張 ›</button>
+    </span>
     <button class="ss-btn" id="ss-auto-btn" onclick="toggleAuto()">▶ 自動播放</button>
     <span id="ss-auto-label">間隔</span>
     <input id="ss-interval" type="range" min="1" max="10" value="3" oninput="ssIntervalSec=+this.value; document.getElementById('ss-iv-val').textContent=this.value+'s'">
@@ -894,6 +898,7 @@ function startSlideshow(mode) {
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
   document.getElementById('ss-auto-btn').textContent = '▶ 自動播放';
   updateMuteBtn();
+  updateStepBtns();
   const stage = document.getElementById('ss-stage');
   stage.className = 'mode-' + mode;
   document.getElementById('slideshow').classList.add('open');
@@ -908,6 +913,7 @@ function enterSlideshowFromLb() {
   ssMuted = false;
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
   updateMuteBtn();
+  updateStepBtns();
   const stage = document.getElementById('ss-stage');
   stage.className = 'mode-1';
   document.getElementById('slideshow').classList.add('open');
@@ -933,7 +939,18 @@ function updateMuteBtn() {
   btn.textContent = ssMuted ? '🔇 靜音中' : '🔊 有聲';
 }
 
-function pauseSsVideos() {
+function ssStep(dir) {
+  pauseSsVideos();
+  ssIndex = (ssIndex + dir + files.length * 10) % files.length;
+  renderSs();
+  if (ssAuto) resetAutoTimer();
+}
+
+function updateStepBtns() {
+  const el = document.getElementById('ss-step-btns');
+  if (!el) return;
+  el.style.display = ssMode > 1 ? 'flex' : 'none';
+}
   document.querySelectorAll('#ss-stage video').forEach(v => v.pause());
 }
 
