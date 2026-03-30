@@ -951,6 +951,8 @@ function updateStepBtns() {
   if (!el) return;
   el.style.display = ssMode > 1 ? 'flex' : 'none';
 }
+
+function pauseSsVideos() {
   document.querySelectorAll('#ss-stage video').forEach(v => v.pause());
 }
 
