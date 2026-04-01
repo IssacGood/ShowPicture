@@ -5,470 +5,184 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>本地媒體相簿 ─ 建議使用 Edge 或 Safari</title>
 <style>
-  :root {
-    --bg: #0f0f0f;
-    --bg2: #1a1a1a;
-    --bg3: #242424;
-    --border: #333;
-    --text: #e8e8e8;
-    --text2: #999;
-    --accent: #c8a96e;
-    --accent2: #a08040;
-    --radius: 6px;
-    --toolbar-h: 52px;
-    --pathbar-h: 32px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-    font-size: 14px;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
+:root {
+  --bg:#0f0f0f; --bg2:#1a1a1a; --bg3:#242424; --bg4:#2e2e2e;
+  --border:#333; --border2:#444;
+  --text:#e8e8e8; --text2:#999; --text3:#666;
+  --accent:#c8a96e; --accent2:#a08040;
+  --radius:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang TC','Microsoft JhengHei',sans-serif;font-size:14px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 
-  /* ── TOOLBAR ── */
-  #toolbar {
-    height: var(--toolbar-h);
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 12px;
-    flex-shrink: 0;
-    z-index: 10;
-  }
-  #toolbar .logo {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--accent);
-    letter-spacing: 0.05em;
-    margin-right: 8px;
-    white-space: nowrap;
-  }
-  .tb-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
-  .tb-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 5px 12px;
-    border-radius: var(--radius);
-    cursor: pointer;
-    font-size: 13px;
-    white-space: nowrap;
-    transition: background .15s, border-color .15s;
-  }
-  .tb-btn:hover { background: var(--bg3); border-color: #555; }
-  .tb-btn.active { background: var(--accent2); border-color: var(--accent); color: #fff; }
-  #folder-btn {
-    background: var(--accent2);
-    border-color: var(--accent);
-    color: #fff;
-    font-weight: 500;
-  }
-  #folder-btn:hover { background: var(--accent); }
+/* ── TOOLBAR ── */
+#toolbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;z-index:10;overflow-x:auto;overflow-y:hidden;}
+#toolbar::-webkit-scrollbar{height:3px;}
+#toolbar::-webkit-scrollbar-thumb{background:#444;}
+.logo{font-size:15px;font-weight:600;color:var(--accent);letter-spacing:.05em;white-space:nowrap;flex-shrink:0;}
+.tb-sep{width:1px;height:24px;background:var(--border);flex-shrink:0;}
+.tb-btn{background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;transition:background .15s,border-color .15s;}
+.tb-btn:hover{background:var(--bg3);border-color:var(--border2);}
+.tb-btn.active{background:var(--accent2);border-color:var(--accent);color:#fff;}
+#folder-btn{background:var(--accent2);border-color:var(--accent);color:#fff;font-weight:500;}
+#folder-btn:hover{background:var(--accent);}
+.tb-label{color:var(--text2);font-size:12px;white-space:nowrap;flex-shrink:0;}
+#col-slider{width:75px;accent-color:var(--accent);flex-shrink:0;}
+#search-input{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:var(--radius);font-size:12px;width:130px;outline:none;flex-shrink:0;}
+#search-input:focus{border-color:var(--accent2);}
+#sort-select{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:12px;cursor:pointer;outline:none;flex-shrink:0;}
+#stats{color:var(--text2);font-size:11px;white-space:nowrap;flex-shrink:0;margin-left:auto;}
 
-  /* grid cols slider */
-  #col-label { color: var(--text2); font-size: 12px; white-space: nowrap; }
-  #col-slider { width: 90px; accent-color: var(--accent); }
+/* ── PATHBAR ── */
+#pathbar{height:30px;background:var(--bg3);border-bottom:1px solid var(--border);display:none;align-items:center;padding:0 10px;gap:8px;flex-shrink:0;font-size:12px;overflow:hidden;}
+#pathbar.on{display:flex;}
+#pathbar-back{background:transparent;border:1px solid var(--border);color:var(--text2);padding:2px 8px;border-radius:var(--radius);cursor:pointer;font-size:11px;white-space:nowrap;transition:background .15s,color .15s;}
+#pathbar-back:hover{background:var(--bg2);color:var(--text);}
+#pathbar-back:disabled{opacity:.3;cursor:default;}
+#pathbar-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2);}
+#pathbar-path .seg{color:var(--text);}
+#pathbar-path .seg:last-child{color:var(--accent);}
+#pathbar-path .sep{margin:0 4px;opacity:.4;}
 
-  #stats { color: var(--text2); font-size: 12px; margin-left: auto; white-space: nowrap; }
+/* ── SUBFOLDERS ── */
+#subfolders{display:none;flex-wrap:wrap;gap:6px;padding:8px 10px 4px;flex-shrink:0;}
+#subfolders.on{display:flex;}
+.folder-tile{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s,border-color .15s,color .15s;white-space:nowrap;}
+.folder-tile:hover{background:var(--bg2);border-color:var(--accent);color:var(--text);}
 
-  /* ── SUBFOLDER TILES ── */
-  #subfolders {
-    display: none;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 12px 4px;
-  }
-  #subfolders.visible { display: flex; }
-  .folder-tile {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 5px 12px;
-    font-size: 12px;
-    color: var(--text2);
-    cursor: pointer;
-    display: flex; align-items: center; gap: 6px;
-    transition: background .15s, border-color .15s, color .15s;
-    white-space: nowrap;
-  }
-  .folder-tile:hover { background: var(--bg2); border-color: var(--accent); color: var(--text); }
+/* ── MAIN ── */
+#main{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px;position:relative;}
+#main::-webkit-scrollbar{width:6px;}
+#main::-webkit-scrollbar-thumb{background:#444;border-radius:3px;}
 
-  /* ── MAIN ── */
-  #main {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 12px;
-  }
-  #main::-webkit-scrollbar { width: 6px; }
-  #main::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+/* ── GRID ── */
+#grid{display:grid;gap:6px;grid-template-columns:repeat(var(--cols,4),1fr);}
+.thumb{overflow:hidden;border-radius:var(--radius);cursor:pointer;position:relative;background:var(--bg3);border:1px solid var(--border);transition:transform .15s,border-color .15s;}
+#grid.crop .thumb{aspect-ratio:1;}
+.thumb:hover{transform:scale(1.015);border-color:var(--accent);}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+#grid.full .thumb img{height:auto;object-fit:unset;}
+.vid-canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;transition:opacity .2s;}
+.thumb:hover .vid-canvas{opacity:0;}
+#grid.full .vid-canvas{position:relative;height:auto;object-fit:unset;}
+.vid-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .2s;pointer-events:none;z-index:2;}
+.thumb:hover .vid-preview{opacity:1;}
+.vidico{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;background:rgba(0,0,0,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:3;transition:opacity .2s;}
+.vidico::after{content:'';border:7px solid transparent;border-left:13px solid rgba(255,255,255,.85);margin-left:3px;}
+.thumb:hover .vidico{opacity:0;}
+.dur-badge{position:absolute;bottom:22px;right:4px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:1px 5px;border-radius:3px;z-index:4;pointer-events:none;}
+.type-badge{position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:1px 5px;border-radius:3px;z-index:4;}
+.fav-ico{position:absolute;top:4px;right:4px;font-size:13px;z-index:5;opacity:0;pointer-events:none;transition:opacity .15s;}
+.thumb:hover .fav-ico{opacity:.4;}
+.thumb.fav .fav-ico{opacity:1!important;filter:drop-shadow(0 0 3px rgba(200,169,110,.7));}
+.fav-btn{position:absolute;top:2px;right:2px;z-index:6;background:transparent;border:none;cursor:pointer;font-size:15px;padding:3px;line-height:1;opacity:0;transition:opacity .15s;}
+.thumb:hover .fav-btn{opacity:1;}
+.fname-label{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);color:var(--text2);font-size:10px;padding:3px 5px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;z-index:4;pointer-events:none;}
+.vid-spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;z-index:4;pointer-events:none;}
+.vid-spinner.done{display:none;}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg);}}
 
-  /* ── GRID ── */
-  #grid {
-    display: grid;
-    gap: 6px;
-    grid-template-columns: repeat(var(--cols, 4), 1fr);
-  }
-  .thumb {
-    aspect-ratio: 1;
-    overflow: hidden;
-    border-radius: var(--radius);
-    cursor: pointer;
-    position: relative;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    transition: transform .15s, border-color .15s;
-  }
-  #grid.fit-full .thumb { aspect-ratio: unset; }
-  .thumb:hover { transform: scale(1.02); border-color: var(--accent); }
-  .thumb img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  #grid.fit-full .thumb img {
-    height: auto;
-    object-fit: unset;
-  }
-  .thumb .badge {
-    position: absolute; bottom: 4px; right: 4px;
-    background: rgba(0,0,0,.65);
-    color: #fff;
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 3px;
-    z-index: 3;
-  }
-  .thumb .vidico {
-    position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    width: 32px; height: 32px;
-    background: rgba(0,0,0,.55);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: none;
-    transition: opacity .25s;
-    z-index: 3;
-  }
-  .thumb .vidico::after {
-    content: '';
-    border: 8px solid transparent;
-    border-left: 14px solid rgba(255,255,255,.85);
-    margin-left: 3px;
-  }
-  #grid.fit-full .thumb .vid-canvas {
-    height: auto;
-    object-fit: unset;
-  }
-  #grid.fit-full .thumb .vid-preview {
-    height: auto;
-    object-fit: unset;
-    position: relative;
-  }
-  /* static first-frame canvas */
-  .thumb .vid-canvas {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
-    z-index: 1;
-    transition: opacity .25s;
-  }
-  .thumb:hover .vid-canvas { opacity: 0; }
-  /* hover preview video */
-  .thumb .vid-preview {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
-    opacity: 0;
-    transition: opacity .25s;
-    pointer-events: none;
-    z-index: 2;
-  }
-  .thumb:hover .vid-preview { opacity: 1; }
+/* ── CONTEXT MENU ── */
+#ctx-menu{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 0;z-index:9000;min-width:155px;display:none;box-shadow:0 4px 16px rgba(0,0,0,.5);}
+#ctx-menu.on{display:block;}
+.ctx-item{padding:7px 14px;font-size:13px;cursor:pointer;color:var(--text);white-space:nowrap;}
+.ctx-item:hover{background:var(--bg3);}
+.ctx-sep{height:1px;background:var(--border);margin:3px 0;}
 
-  /* thumbnail loading spinner */
-  .thumb .vid-spinner {
-    position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 22px; height: 22px;
-    border: 2px solid rgba(255,255,255,.15);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-    z-index: 4;
-    pointer-events: none;
-  }
-  .thumb .vid-spinner.done { display: none; }
+/* ── DROP ZONE ── */
+#drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text2);min-height:300px;}
+#drop-zone .dz-icon{font-size:48px;opacity:.25;}
+#drop-zone h2{font-size:17px;font-weight:400;color:var(--text2);}
 
-  /* ── PATHBAR ── */
-  #pathbar {
-    height: var(--pathbar-h);
-    background: var(--bg3);
-    border-bottom: 1px solid var(--border);
-    display: none;
-    align-items: center;
-    padding: 0 12px;
-    gap: 8px;
-    flex-shrink: 0;
-    font-size: 12px;
-    color: var(--text2);
-    overflow: hidden;
-  }
-  #pathbar.visible { display: flex; }
-  #pathbar-back {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text2);
-    padding: 2px 8px;
-    border-radius: var(--radius);
-    cursor: pointer;
-    font-size: 12px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: background .15s, color .15s;
-  }
-  #pathbar-back:hover { background: var(--bg2); color: var(--text); }
-  #pathbar-back:disabled { opacity: .3; cursor: default; }
-  #pathbar-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text2);
-  }
-  #pathbar-path .sep { margin: 0 5px; opacity: .4; }
-  #pathbar-path .seg { color: var(--text); }
-  #pathbar-path .seg:last-child { color: var(--accent); }
+/* ── LIGHTBOX ── */
+#lightbox{display:none;position:fixed;inset:0;z-index:100;flex-direction:row;}
+#lightbox.on{display:flex;}
+#lb-main{flex:1;display:flex;flex-direction:column;min-width:0;}
+#lb-main.bg-black{background:rgba(0,0,0,.93);}
+#lb-main.bg-gray{background:#3a3a3a;}
+#lb-main.bg-white{background:#e8e8e8;}
+#lb-topbar{height:48px;background:rgba(0,0,0,.55);display:flex;align-items:center;padding:0 10px;gap:7px;flex-shrink:0;backdrop-filter:blur(8px);flex-wrap:nowrap;overflow-x:auto;}
+#lb-topbar::-webkit-scrollbar{height:2px;}
+.lb-btn{background:transparent;border:1px solid #555;color:var(--text);padding:3px 9px;border-radius:var(--radius);cursor:pointer;font-size:12px;transition:background .1s;white-space:nowrap;flex-shrink:0;}
+.lb-btn:hover{background:#333;}
+#lb-counter{color:var(--text2);font-size:12px;white-space:nowrap;flex-shrink:0;}
+#lb-name{color:var(--text);font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+#lb-zoom-val{color:var(--text2);font-size:12px;min-width:40px;text-align:center;flex-shrink:0;}
+#lb-speed-wrap{display:none;align-items:center;gap:5px;flex-shrink:0;}
+#lb-speed-wrap.on{display:flex;}
+#lb-speed-select{background:var(--bg3);color:var(--text);border:1px solid #555;border-radius:var(--radius);padding:3px 5px;font-size:12px;cursor:pointer;outline:none;}
+#lb-stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+#lb-media{position:absolute;cursor:grab;user-select:none;}
+#lb-media.dragging{cursor:grabbing;}
+#lb-media img{display:block;max-width:90vw;max-height:calc(100vh - 120px);}
+#lb-media video{display:block;max-width:90vw;max-height:calc(100vh - 120px);}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:1px solid #555;color:#fff;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:background .15s;z-index:5;user-select:none;}
+.lb-nav:hover{background:rgba(200,169,110,.4);}
+#lb-prev{left:14px;}
+#lb-next{right:14px;}
+#lb-bottombar{height:34px;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;backdrop-filter:blur(8px);}
+#lb-hint{color:var(--text2);font-size:11px;text-align:center;}
 
-  /* ── DROP ZONE ── */
-  #drop-zone {
-    position: absolute; inset: var(--toolbar-h) 0 0 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 16px;
-    color: var(--text2);
-    pointer-events: none;
-  }
-  #drop-zone .dz-icon {
-    font-size: 48px; opacity: .3;
-  }
-  #drop-zone h2 { font-size: 18px; font-weight: 400; color: var(--text2); }
+/* ── LB INFO PANEL ── */
+#lb-info{width:210px;background:var(--bg2);border-left:1px solid var(--border);display:none;flex-direction:column;padding:12px;gap:10px;overflow-y:auto;flex-shrink:0;}
+#lb-info.on{display:flex;}
+#lb-info h3{font-size:12px;font-weight:600;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:6px;}
+.info-row{display:flex;flex-direction:column;gap:2px;}
+.info-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
+.info-val{font-size:12px;color:var(--text);word-break:break-all;}
 
-  /* ── LIGHTBOX ── */
-  #lightbox {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.92);
-    z-index: 100;
-    flex-direction: column;
-  }
-  #lightbox.open { display: flex; }
+/* ── SLIDESHOW ── */
+#slideshow{display:none;position:fixed;inset:0;background:#000;z-index:200;flex-direction:column;padding-top:48px;}
+#slideshow.on{display:flex;}
+#ss-topbar{height:48px;background:rgba(0,0,0,.7);display:flex;align-items:center;padding:0 10px;gap:7px;flex-shrink:0;position:absolute;top:0;left:0;right:0;z-index:5;opacity:0;transition:opacity .3s;backdrop-filter:blur(6px);overflow-x:auto;}
+#slideshow:hover #ss-topbar{opacity:1;}
+.ss-btn{background:transparent;border:1px solid #555;color:var(--text);padding:3px 9px;border-radius:var(--radius);cursor:pointer;font-size:12px;transition:background .1s;white-space:nowrap;flex-shrink:0;}
+.ss-btn:hover{background:#333;}
+#ss-counter{color:var(--text2);font-size:12px;white-space:nowrap;flex-shrink:0;}
+#ss-name{flex:1;color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#ss-step-btns{display:none;gap:4px;flex-shrink:0;}
+#ss-step-btns.on{display:flex;}
+#ss-interval{width:65px;accent-color:var(--accent);flex-shrink:0;}
+#ss-iv-val{color:var(--text2);font-size:11px;flex-shrink:0;}
+#ss-stage{flex:1;min-height:0;min-width:0;position:relative;display:grid;overflow:hidden;}
+#ss-stage.m1{grid-template-columns:1fr;grid-template-rows:1fr;}
+#ss-stage.m4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;}
+#ss-stage.m9{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;}
+.ss-cell{overflow:hidden;position:relative;background:#111;display:flex;align-items:center;justify-content:center;cursor:pointer;min-width:0;min-height:0;width:100%;height:100%;}
+.ss-cell img,.ss-cell video,.ss-cell canvas{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;}
+#ss-nav-prev,#ss-nav-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:1px solid #555;color:#fff;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:5;opacity:0;transition:opacity .3s,background .15s;}
+#slideshow:hover #ss-nav-prev,#slideshow:hover #ss-nav-next{opacity:1;}
+#ss-nav-prev:hover,#ss-nav-next:hover{background:rgba(200,169,110,.4);}
+#ss-nav-prev{left:14px;}
+#ss-nav-next{right:14px;}
 
-  #lb-topbar {
-    height: 48px;
-    background: rgba(0,0,0,.5);
-    display: flex; align-items: center;
-    padding: 0 16px; gap: 12px;
-    flex-shrink: 0;
-    backdrop-filter: blur(8px);
-  }
-  #lb-counter { color: var(--text2); font-size: 13px; }
-  #lb-name { color: var(--text); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lb-btn {
-    background: transparent;
-    border: 1px solid #555;
-    color: var(--text);
-    padding: 4px 10px;
-    border-radius: var(--radius);
-    cursor: pointer;
-    font-size: 13px;
-    transition: background .1s;
-  }
-  .lb-btn:hover { background: #333; }
-  #lb-zoom-val { color: var(--text2); font-size: 12px; min-width: 42px; text-align: center; }
+/* ── SHORTCUT MODAL ── */
+#shortcut-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;}
+#shortcut-modal.on{display:flex;}
+#shortcut-box{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:22px;min-width:300px;max-width:460px;max-height:90vh;overflow-y:auto;}
+#shortcut-box h2{color:var(--accent);font-size:14px;margin-bottom:14px;}
+.sc-grid{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12px;}
+.sc-key{background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-family:monospace;color:var(--accent);text-align:center;white-space:nowrap;}
+.sc-desc{color:var(--text2);align-self:center;}
+.sc-section{grid-column:1/-1;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-top:10px;padding-top:6px;border-top:1px solid var(--border);}
+#shortcut-close{margin-top:16px;width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px;border-radius:var(--radius);cursor:pointer;font-size:12px;}
+#shortcut-close:hover{background:var(--bg4);}
 
-  #lb-stage {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
-  }
-  #lb-media {
-    position: absolute;
-    max-width: none;
-    max-height: none;
-    cursor: grab;
-    user-select: none;
-    transition: none;
-  }
-  #lb-media.dragging { cursor: grabbing; }
-  #lb-media img { display: block; }
-  #lb-media video { display: block; max-width: 90vw; max-height: calc(100vh - 120px); }
+/* ── FAV PANEL ── */
+#fav-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center;}
+#fav-panel.on{display:flex;}
+#fav-box{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:20px;width:460px;max-height:80vh;display:flex;flex-direction:column;gap:10px;}
+#fav-box h2{color:var(--accent);font-size:14px;}
+#fav-count{color:var(--text2);font-size:12px;}
+#fav-list{flex:1;overflow-y:auto;font-size:12px;color:var(--text2);white-space:pre;font-family:monospace;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px;min-height:80px;max-height:300px;}
+#fav-box-btns{display:flex;gap:8px;}
+.fav-action-btn{flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px;border-radius:var(--radius);cursor:pointer;font-size:12px;}
+.fav-action-btn:hover{background:var(--bg4);}
+#fav-copy-btn{border-color:var(--accent2);color:var(--accent);}
 
-  .lb-nav {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    background: rgba(0,0,0,.5);
-    border: 1px solid #555;
-    color: #fff;
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 20px;
-    display: flex; align-items: center; justify-content: center;
-    transition: background .15s;
-    z-index: 5;
-    user-select: none;
-  }
-  .lb-nav:hover { background: rgba(200,169,110,.4); }
-  #lb-prev { left: 16px; }
-  #lb-next { right: 16px; }
-
-  #lb-bottombar {
-    height: 44px;
-    background: rgba(0,0,0,.5);
-    display: flex; align-items: center; justify-content: center;
-    gap: 16px;
-    flex-shrink: 0;
-    backdrop-filter: blur(8px);
-  }
-  #lb-hint { color: var(--text2); font-size: 12px; }
-
-  /* ── SLIDESHOW ── */
-  #slideshow {
-    display: none;
-    position: fixed; inset: 0;
-    background: #000;
-    z-index: 200;
-    flex-direction: column;
-    padding-top: 48px;
-  }
-  #slideshow.open { display: flex; }
-
-  #ss-topbar {
-    height: 48px;
-    background: rgba(0,0,0,.7);
-    display: flex; align-items: center;
-    padding: 0 16px; gap: 12px;
-    flex-shrink: 0;
-    position: absolute; top: 0; left: 0; right: 0;
-    z-index: 5;
-    opacity: 0;
-    transition: opacity .3s;
-    backdrop-filter: blur(6px);
-  }
-  #slideshow:hover #ss-topbar { opacity: 1; }
-  #ss-counter { color: var(--text2); font-size: 13px; }
-  #ss-name { flex: 1; color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ss-btn {
-    background: transparent;
-    border: 1px solid #555;
-    color: var(--text);
-    padding: 4px 10px;
-    border-radius: var(--radius);
-    cursor: pointer;
-    font-size: 13px;
-    transition: background .1s;
-  }
-  .ss-btn:hover { background: #333; }
-  #ss-auto-label { color: var(--text2); font-size: 12px; white-space: nowrap; }
-  #ss-interval { width: 70px; accent-color: var(--accent); }
-
-  #ss-stage {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    position: relative;
-    display: grid;
-    overflow: hidden;
-  }
-  #ss-stage.mode-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-  #ss-stage.mode-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; }
-  #ss-stage.mode-9 { grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); gap: 2px; }
-
-  .ss-cell {
-    overflow: hidden;
-    position: relative;
-    background: #111;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    min-width: 0; min-height: 0;
-    width: 100%; height: 100%;
-  }
-  .ss-cell img, .ss-cell canvas {
-    display: block;
-    width: 100%; height: 100%;
-    object-fit: contain;
-    pointer-events: none;
-  }
-  .ss-cell .ss-vidico {
-    position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    width: 40px; height: 40px;
-    background: rgba(0,0,0,.5);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: none;
-  }
-  .ss-cell .ss-vidico::after {
-    content: '';
-    border: 9px solid transparent;
-    border-left: 16px solid rgba(255,255,255,.8);
-    margin-left: 4px;
-  }
-
-  #ss-nav-prev, #ss-nav-next {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    background: rgba(0,0,0,.5);
-    border: 1px solid #555;
-    color: #fff;
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 20px;
-    display: flex; align-items: center; justify-content: center;
-    z-index: 5;
-    opacity: 0;
-    transition: opacity .3s, background .15s;
-  }
-  #slideshow:hover #ss-nav-prev,
-  #slideshow:hover #ss-nav-next { opacity: 1; }
-  #ss-nav-prev:hover, #ss-nav-next:hover { background: rgba(200,169,110,.4); }
-  #ss-nav-prev { left: 16px; }
-  #ss-nav-next { right: 16px; }
-
-  /* loading spinner */
-  .spinner {
-    width: 24px; height: 24px;
-    border: 2px solid #333;
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .6s linear infinite;
-    position: absolute;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* toast */
-  #toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: rgba(30,30,30,.92);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    z-index: 9999;
-    opacity: 0;
-    transition: opacity .3s;
-    pointer-events: none;
-    white-space: nowrap;
-  }
-  #toast.show { opacity: 1; }
+/* ── TOAST ── */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.93);border:1px solid var(--border2);color:var(--text);padding:7px 16px;border-radius:20px;font-size:12px;z-index:99999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+#toast.on{opacity:1;}
 </style>
 </head>
 <body>
@@ -478,29 +192,35 @@
   <span class="logo">◆ Gallery</span>
   <button id="folder-btn" class="tb-btn" onclick="openFolder()">📁 選取資料夾</button>
   <div class="tb-sep"></div>
-  <span id="col-label">欄數：<span id="col-val">4</span></span>
+  <span class="tb-label">欄 <span id="col-val">4</span></span>
   <input id="col-slider" type="range" min="1" max="10" value="4" oninput="setCols(this.value)">
-  <button id="fit-btn" class="tb-btn" onclick="toggleFit()" title="切換完整顯示／裁切填滿">裁切</button>
-  <div class="tb-sep"></div>
-  <button id="view-grid-btn" class="tb-btn active" onclick="setView('grid')">格狀</button>
-  <button id="view-ss1-btn" class="tb-btn" onclick="startSlideshow(1)">投影 ×1</button>
-  <button id="view-ss4-btn" class="tb-btn" onclick="startSlideshow(4)">投影 ×4</button>
-  <button id="view-ss9-btn" class="tb-btn" onclick="startSlideshow(9)">投影 ×9</button>
+  <button id="fit-btn" class="tb-btn" onclick="toggleFit()">裁切</button>
+  <button id="fname-btn" class="tb-btn" onclick="toggleFname()">檔名</button>
   <div class="tb-sep"></div>
   <button id="filter-all-btn" class="tb-btn active" onclick="setFilter('all')">全部</button>
-  <button id="filter-img-btn" class="tb-btn" onclick="setFilter('image')">純照片</button>
-  <button id="filter-vid-btn" class="tb-btn" onclick="setFilter('video')">純影片</button>
+  <button id="filter-image-btn" class="tb-btn" onclick="setFilter('image')">照片</button>
+  <button id="filter-video-btn" class="tb-btn" onclick="setFilter('video')">影片</button>
+  <button id="filter-fav-btn" class="tb-btn" onclick="setFilter('fav')">⭐ 最愛</button>
   <div class="tb-sep"></div>
-  <select id="sort-select" onchange="applySort()" title="排序方式" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:13px;cursor:pointer;outline:none;">
+  <input id="search-input" type="search" placeholder="搜尋檔名…" oninput="onSearch(this.value)">
+  <div class="tb-sep"></div>
+  <select id="sort-select" onchange="applySort()">
     <option value="name-asc">檔名 A→Z</option>
     <option value="name-desc">檔名 Z→A</option>
     <option value="date-desc">日期 新→舊</option>
     <option value="date-asc">日期 舊→新</option>
     <option value="size-desc">大小 大→小</option>
     <option value="size-asc">大小 小→大</option>
-    <option value="type-img">類型 圖片優先</option>
-    <option value="type-vid">類型 影片優先</option>
+    <option value="type-img">圖片優先</option>
+    <option value="type-vid">影片優先</option>
   </select>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="startSlideshow(1)">投影×1</button>
+  <button class="tb-btn" onclick="startSlideshow(4)">投影×4</button>
+  <button class="tb-btn" onclick="startSlideshow(9)">投影×9</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="showFavPanel()">📋 最愛清單</button>
+  <button class="tb-btn" onclick="showShortcuts()">? 快捷鍵</button>
   <div class="tb-sep"></div>
   <span id="stats"></span>
 </div>
@@ -514,7 +234,7 @@
 <!-- SUBFOLDERS -->
 <div id="subfolders"></div>
 
-<!-- MAIN GRID -->
+<!-- MAIN -->
 <div id="main">
   <div id="drop-zone">
     <div class="dz-icon">🖼</div>
@@ -522,28 +242,61 @@
     <p style="color:#666;font-size:12px">支援 JPG / PNG / GIF / WEBP / MP4 / MOV / WEBM 等格式</p>
     <p style="color:#555;font-size:11px;margin-top:4px">建議使用 Microsoft Edge 或 Safari 開啟，以獲得最佳影片相容性（含 H.265/HEVC）</p>
   </div>
-  <div id="grid" style="--cols:4"></div>
+  <div id="grid" class="crop" style="--cols:4"></div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxCopyName()">📋 複製檔名</div>
+  <div class="ctx-item" onclick="ctxToggleFav()">⭐ 切換最愛</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxShowInfo()">ℹ️ 檔案資訊</div>
 </div>
 
 <!-- LIGHTBOX -->
 <div id="lightbox">
-  <div id="lb-topbar">
-    <span id="lb-counter"></span>
-    <span id="lb-name"></span>
-    <button class="lb-btn" onclick="lbZoom(-0.25)">－</button>
-    <span id="lb-zoom-val">100%</span>
-    <button class="lb-btn" onclick="lbZoom(0.25)">＋</button>
-    <button class="lb-btn" onclick="lbResetZoom()">重置</button>
-    <button class="lb-btn" id="lb-ss-btn" onclick="enterSlideshowFromLb()">▶ 投影</button>
-    <button class="lb-btn" onclick="closeLightbox()">✕ 關閉</button>
+  <div id="lb-main" class="bg-black">
+    <div id="lb-topbar">
+      <span id="lb-counter"></span>
+      <span id="lb-name"></span>
+      <button class="lb-btn" onclick="lbZoom(-0.25)">－</button>
+      <span id="lb-zoom-val">100%</span>
+      <button class="lb-btn" onclick="lbZoom(0.25)">＋</button>
+      <button class="lb-btn" onclick="lbResetZoom()">重置</button>
+      <div id="lb-speed-wrap">
+        <span style="color:var(--text2);font-size:11px;">速度</span>
+        <select id="lb-speed-select" onchange="setLbSpeed(this.value)">
+          <option value="0.25">0.25x</option>
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+      <button class="lb-btn" onclick="cycleLbBg()">🎨 背景</button>
+      <button class="lb-btn" onclick="toggleLbInfo()">ℹ️ 資訊</button>
+      <button class="lb-btn" onclick="enterSlideshowFromLb()">▶ 投影</button>
+      <button class="lb-btn" onclick="closeLightbox()">✕ 關閉</button>
+    </div>
+    <div id="lb-stage">
+      <div id="lb-media"></div>
+      <button class="lb-nav" id="lb-prev" onclick="lbMove(-1)">‹</button>
+      <button class="lb-nav" id="lb-next" onclick="lbMove(1)">›</button>
+    </div>
+    <div id="lb-bottombar"><span id="lb-hint"></span></div>
   </div>
-  <div id="lb-stage">
-    <div id="lb-media"></div>
-    <button class="lb-nav" id="lb-prev" onclick="lbMove(-1)">‹</button>
-    <button class="lb-nav" id="lb-next" onclick="lbMove(1)">›</button>
-  </div>
-  <div id="lb-bottombar">
-    <span id="lb-hint"></span>
+  <div id="lb-info">
+    <h3>檔案資訊</h3>
+    <div class="info-row"><span class="info-label">檔名</span><span class="info-val" id="info-name">-</span></div>
+    <div class="info-row"><span class="info-label">類型</span><span class="info-val" id="info-type">-</span></div>
+    <div class="info-row"><span class="info-label">大小</span><span class="info-val" id="info-size">-</span></div>
+    <div class="info-row"><span class="info-label">修改日期</span><span class="info-val" id="info-date">-</span></div>
+    <div class="info-row"><span class="info-label">解析度</span><span class="info-val" id="info-res">-</span></div>
+    <div class="info-row"><span class="info-label">路徑</span><span class="info-val" id="info-path">-</span></div>
   </div>
 </div>
 
@@ -552,57 +305,101 @@
   <div id="ss-topbar">
     <span id="ss-counter"></span>
     <span id="ss-name"></span>
-    <span id="ss-step-btns" style="display:none;gap:4px;display:none;align-items:center;">
+    <span id="ss-step-btns">
       <button class="ss-btn" onclick="ssStep(-1)">‹ 退一張</button>
       <button class="ss-btn" onclick="ssStep(1)">進一張 ›</button>
     </span>
-    <button class="ss-btn" id="ss-auto-btn" onclick="toggleAuto()">▶ 自動播放</button>
-    <span id="ss-auto-label">間隔</span>
-    <input id="ss-interval" type="range" min="1" max="10" value="3" oninput="ssIntervalSec=+this.value; document.getElementById('ss-iv-val').textContent=this.value+'s'">
-    <span id="ss-iv-val" style="color:var(--text2);font-size:12px">3s</span>
-    <button class="ss-btn" id="ss-mute-btn" onclick="toggleSsMute()">🔇 靜音中</button>
+    <button class="ss-btn" id="ss-auto-btn" onclick="toggleAuto()">▶ 自動</button>
+    <input id="ss-interval" type="range" min="1" max="15" value="3" oninput="ssIntervalSec=+this.value;document.getElementById('ss-iv-val').textContent=this.value+'s'">
+    <span id="ss-iv-val">3s</span>
+    <button class="ss-btn" id="ss-mute-btn" onclick="toggleSsMute()">🔇 靜音</button>
     <button class="ss-btn" onclick="exitSlideshow()">✕ 離開</button>
   </div>
-  <div id="ss-stage" class="mode-1"></div>
+  <div id="ss-stage" class="m1"></div>
   <button id="ss-nav-prev" onclick="ssMove(-1)">‹</button>
   <button id="ss-nav-next" onclick="ssMove(1)">›</button>
+</div>
+
+<!-- SHORTCUT MODAL -->
+<div id="shortcut-modal" onclick="if(event.target===this)closeShortcuts()">
+  <div id="shortcut-box">
+    <h2>⌨️ 快捷鍵一覽</h2>
+    <div class="sc-grid">
+      <span class="sc-section">放大模式 — 圖片</span>
+      <span class="sc-key">← →</span><span class="sc-desc">切換上 / 下一張</span>
+      <span class="sc-key">滾輪 / + -</span><span class="sc-desc">縮放</span>
+      <span class="sc-key">拖曳</span><span class="sc-desc">移動圖片</span>
+      <span class="sc-key">點黑色區域</span><span class="sc-desc">關閉</span>
+      <span class="sc-key">Esc</span><span class="sc-desc">關閉</span>
+      <span class="sc-section">放大模式 — 影片</span>
+      <span class="sc-key">← →</span><span class="sc-desc">跳 ±3 秒</span>
+      <span class="sc-key">M</span><span class="sc-desc">靜音 / 取消靜音</span>
+      <span class="sc-key">點黑色區域</span><span class="sc-desc">關閉</span>
+      <span class="sc-key">Esc</span><span class="sc-desc">關閉</span>
+      <span class="sc-section">投影模式</span>
+      <span class="sc-key">← →</span><span class="sc-desc">翻頁（整頁）</span>
+      <span class="sc-key">空白鍵</span><span class="sc-desc">自動播放 / 暫停</span>
+      <span class="sc-key">Esc</span><span class="sc-desc">離開投影</span>
+      <span class="sc-section">全域</span>
+      <span class="sc-key">?</span><span class="sc-desc">顯示 / 關閉此說明</span>
+    </div>
+    <button id="shortcut-close" onclick="closeShortcuts()">關閉</button>
+  </div>
+</div>
+
+<!-- FAV PANEL -->
+<div id="fav-panel" onclick="if(event.target===this)closeFavPanel()">
+  <div id="fav-box">
+    <h2>⭐ 最愛清單 <span id="fav-count" style="font-weight:400;color:var(--text2);"></span></h2>
+    <div id="fav-list"></div>
+    <div id="fav-box-btns">
+      <button id="fav-copy-btn" class="fav-action-btn" onclick="copyFavList()">📋 複製全部檔名</button>
+      <button class="fav-action-btn" onclick="closeFavPanel()">關閉</button>
+    </div>
+  </div>
 </div>
 
 <!-- TOAST -->
 <div id="toast"></div>
 
 <script>
-/* ── STATE ── */
-let files = [];          // {file, url, type:'image'|'video', name}
-let filterMode = 'all';  // 'all' | 'image' | 'video'
+/* ════════════ STATE ════════════ */
+let files = [];
+let filterMode = 'all';
+let searchQuery = '';
+let showFname = false;
+let fitMode = 'crop';
+let favSet = new Set();
+let navStack = [];
+let ctxFileIdx = -1;
+
 let lbIndex = 0;
 let lbScale = 1;
 let lbX = 0, lbY = 0;
 let lbDragging = false, lbDx = 0, lbDy = 0;
+let lbDidDrag = false, lbMdX = 0, lbMdY = 0;
+let lbBg = 0;
+const LB_BGS = ['bg-black','bg-gray','bg-white'];
+let lbInfoOpen = false;
 
 let ssIndex = 0;
-let ssMode = 1;          // 1, 4, 9
+let ssMode = 1;
 let ssAuto = false;
 let ssIntervalSec = 3;
 let ssTimer = null;
-let ssMuted = false;     // false = 嘗試有聲，true = 確定靜音
+let ssMuted = false;
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|avi|mkv|m4v|ogv)$/i;
 
-/* ── FOLDER NAV STATE ── */
-let rootHandle = null;
-let navStack = [];   // array of {handle, name}
-
-/* ── FOLDER ── */
+/* ════════════ FOLDER NAV ════════════ */
 async function openFolder() {
   try {
-    const handle = await window.showDirectoryPicker({ mode: 'read' });
-    rootHandle = handle;
-    navStack = [{ handle, name: handle.name }];
-    await loadDir(handle);
+    const h = await window.showDirectoryPicker({ mode:'read' });
+    navStack = [{ handle:h, name:h.name }];
+    await loadDir(h);
   } catch(e) {
-    if (e.name !== 'AbortError') toast('無法開啟資料夾：' + e.message);
+    if (e.name !== 'AbortError') toast('無法開啟：' + e.message);
   }
 }
 
@@ -614,171 +411,202 @@ async function navInto(handle, name) {
 async function navBack() {
   if (navStack.length <= 1) return;
   navStack.pop();
-  await loadDir(navStack[navStack.length - 1].handle);
+  await loadDir(navStack[navStack.length-1].handle);
 }
 
 async function loadDir(handle) {
-  const newFiles = [];
-  const subDirs = [];
-
+  const newFiles = [], subDirs = [];
   for await (const entry of handle.values()) {
     if (entry.kind === 'directory') {
-      subDirs.push({ handle: entry, name: entry.name });
+      subDirs.push({ handle:entry, name:entry.name });
       continue;
     }
     const name = entry.name;
     if (!IMAGE_EXT.test(name) && !VIDEO_EXT.test(name)) continue;
     const file = await entry.getFile();
-    const url = URL.createObjectURL(file);
-    newFiles.push({ file, url, name, type: VIDEO_EXT.test(name) ? 'video' : 'image',
-      lastModified: file.lastModified, size: file.size });
+    newFiles.push({
+      file, url: URL.createObjectURL(file), name,
+      type: VIDEO_EXT.test(name) ? 'video' : 'image',
+      lastModified: file.lastModified, size: file.size
+    });
   }
-
-  newFiles.sort((a,b) => a.name.localeCompare(b.name, 'zh-TW', {numeric:true}));
-  subDirs.sort((a,b) => a.name.localeCompare(b.name, 'zh-TW', {numeric:true}));
-
+  newFiles.sort((a,b) => a.name.localeCompare(b.name,'zh-TW',{numeric:true}));
+  subDirs.sort((a,b) => a.name.localeCompare(b.name,'zh-TW',{numeric:true}));
   files = newFiles;
+  document.getElementById('drop-zone').style.display = 'none';
   renderPathbar();
   renderSubfolders(subDirs);
-  applySort();
-  document.getElementById('drop-zone').style.display = 'none';
-  updateStats();
+  applySort(false);
 }
 
 function renderPathbar() {
-  const bar = document.getElementById('pathbar');
-  const pathEl = document.getElementById('pathbar-path');
-  const backBtn = document.getElementById('pathbar-back');
-  bar.classList.add('visible');
-  backBtn.disabled = navStack.length <= 1;
-
-  pathEl.innerHTML = navStack.map((seg, i) => {
-    const isLast = i === navStack.length - 1;
-    const sep = i > 0 ? '<span class="sep">/</span>' : '';
-    return `${sep}<span class="seg">${escHtml(seg.name)}</span>`;
-  }).join('');
+  document.getElementById('pathbar').classList.add('on');
+  document.getElementById('pathbar-back').disabled = navStack.length <= 1;
+  document.getElementById('pathbar-path').innerHTML = navStack.map((s,i) =>
+    (i > 0 ? '<span class="sep">/</span>' : '') + `<span class="seg">${esc(s.name)}</span>`
+  ).join('');
 }
 
 function renderSubfolders(dirs) {
   const el = document.getElementById('subfolders');
   el.innerHTML = '';
-  if (dirs.length === 0) { el.classList.remove('visible'); return; }
-  el.classList.add('visible');
+  if (!dirs.length) { el.classList.remove('on'); return; }
+  el.classList.add('on');
   dirs.forEach(d => {
-    const tile = document.createElement('button');
-    tile.className = 'folder-tile';
-    tile.innerHTML = `📁 ${escHtml(d.name)}`;
-    tile.onclick = () => navInto(d.handle, d.name);
-    el.appendChild(tile);
+    const b = document.createElement('button');
+    b.className = 'folder-tile';
+    b.innerHTML = `📁 ${esc(d.name)}`;
+    b.onclick = () => navInto(d.handle, d.name);
+    el.appendChild(b);
   });
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* ════════════ FILTER / SEARCH / SORT ════════════ */
+function filteredFiles() {
+  let list = files;
+  if (filterMode === 'image') list = list.filter(f => f.type === 'image');
+  else if (filterMode === 'video') list = list.filter(f => f.type === 'video');
+  else if (filterMode === 'fav') list = list.filter(f => favSet.has(f.name));
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    list = list.filter(f => f.name.toLowerCase().includes(q));
+  }
+  return list;
 }
 
 function setFilter(mode) {
   filterMode = mode;
-  document.getElementById('filter-all-btn').classList.toggle('active', mode === 'all');
-  document.getElementById('filter-img-btn').classList.toggle('active', mode === 'image');
-  document.getElementById('filter-vid-btn').classList.toggle('active', mode === 'video');
+  ['all','image','video','fav'].forEach(m => {
+    document.getElementById('filter-'+m+'-btn').classList.toggle('active', m === mode);
+  });
   renderGrid();
 }
 
-function filteredFiles() {
-  if (filterMode === 'all') return files;
-  return files.filter(f => f.type === filterMode);
+function onSearch(val) {
+  searchQuery = val.trim();
+  renderGrid();
 }
 
-function applySort() {
+function applySort(doToast=true) {
   const val = document.getElementById('sort-select').value;
   const [key, dir] = val.split('-');
-  files.sort((a, b) => {
+  files.sort((a,b) => {
     let r = 0;
-    if (key === 'name') {
-      r = a.name.localeCompare(b.name, 'zh-TW', {numeric:true});
-    } else if (key === 'date') {
-      r = a.lastModified - b.lastModified;
-    } else if (key === 'size') {
-      r = a.size - b.size;
-    } else if (key === 'type') {
-      const av = a.type === 'video' ? 1 : 0;
-      const bv = b.type === 'video' ? 1 : 0;
-      r = dir === 'img' ? av - bv : bv - av;
-      if (r === 0) r = a.name.localeCompare(b.name, 'zh-TW', {numeric:true});
+    if (key === 'name') r = a.name.localeCompare(b.name,'zh-TW',{numeric:true});
+    else if (key === 'date') r = a.lastModified - b.lastModified;
+    else if (key === 'size') r = a.size - b.size;
+    else if (key === 'type') {
+      const av = a.type==='video'?1:0, bv = b.type==='video'?1:0;
+      r = dir==='img' ? av-bv : bv-av;
+      if (r === 0) r = a.name.localeCompare(b.name,'zh-TW',{numeric:true});
       return r;
     }
     return dir === 'desc' ? -r : r;
   });
   renderGrid();
-  toast('排序：' + document.getElementById('sort-select').selectedOptions[0].text);
+  if (doToast) toast('排序：' + document.getElementById('sort-select').selectedOptions[0].text);
 }
-
 
 function updateStats() {
-  const imgs = files.filter(f=>f.type==='image').length;
-  const vids = files.filter(f=>f.type==='video').length;
-  document.getElementById('stats').textContent = `共 ${files.length} 個 ｜ 圖 ${imgs} ／ 影 ${vids}`;
+  const fl = filteredFiles();
+  const imgs = files.filter(f => f.type==='image').length;
+  const vids = files.filter(f => f.type==='video').length;
+  document.getElementById('stats').textContent = `顯示 ${fl.length} ／ 共 ${files.length}（圖${imgs} 影${vids}）`;
 }
 
-/* ── GRID ── */
+/* ════════════ GRID DISPLAY ════════════ */
 function setCols(v) {
   document.getElementById('col-val').textContent = v;
   document.getElementById('grid').style.setProperty('--cols', v);
 }
 
-/* ── VIDEO THUMB QUEUE (max 3 concurrent decoders) ── */
-const THUMB_CONCURRENCY = 3;
+function toggleFit() {
+  fitMode = fitMode==='crop' ? 'full' : 'crop';
+  const grid = document.getElementById('grid');
+  grid.classList.toggle('crop', fitMode==='crop');
+  grid.classList.toggle('full', fitMode==='full');
+  const btn = document.getElementById('fit-btn');
+  btn.classList.toggle('active', fitMode==='full');
+  btn.textContent = fitMode==='crop' ? '裁切' : '完整';
+}
+
+function toggleFname() {
+  showFname = !showFname;
+  document.getElementById('fname-btn').classList.toggle('active', showFname);
+  document.querySelectorAll('.fname-label').forEach(el => el.style.display = showFname ? 'block' : 'none');
+}
+
+/* ════════════ VIDEO THUMB QUEUE ════════════ */
+const CONCURRENCY = 3;
 let thumbActive = 0;
 const thumbQueue = [];
 
-function thumbEnqueue(task) {
-  thumbQueue.push(task);
-  thumbDrain();
-}
+function thumbEnqueue(task) { thumbQueue.push(task); thumbDrain(); }
 
 function thumbDrain() {
-  while (thumbActive < THUMB_CONCURRENCY && thumbQueue.length > 0) {
+  while (thumbActive < CONCURRENCY && thumbQueue.length > 0) {
     const task = thumbQueue.shift();
     thumbActive++;
-    task().finally(() => {
-      thumbActive--;
-      thumbDrain();
-    });
+    task().finally(() => { thumbActive--; thumbDrain(); });
   }
 }
 
 function captureFirstFrame(url, canvas, spinner) {
   return new Promise(resolve => {
     const vid = document.createElement('video');
-    vid.src = url;
-    vid.muted = true;
-    vid.preload = 'metadata';
-    const cleanup = () => {
-      vid.src = '';
-      if (spinner) spinner.classList.add('done');
-      resolve();
-    };
+    vid.src = url; vid.muted = true; vid.preload = 'metadata';
+    const done = () => { vid.src = ''; if (spinner) spinner.classList.add('done'); resolve(); };
     vid.addEventListener('loadeddata', () => { vid.currentTime = 0.1; });
     vid.addEventListener('seeked', () => {
       if (canvas) {
-        canvas.width = vid.videoWidth || 200;
-        canvas.height = vid.videoHeight || 200;
+        canvas.width = vid.videoWidth||200;
+        canvas.height = vid.videoHeight||200;
         canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
       }
-      cleanup();
+      done();
     });
-    vid.addEventListener('error', cleanup);
-    setTimeout(cleanup, 8000); // failsafe timeout
+    vid.addEventListener('error', done);
+    setTimeout(done, 8000);
   });
 }
 
+function getVideoDuration(url) {
+  return new Promise(resolve => {
+    const vid = document.createElement('video');
+    vid.src = url; vid.muted = true; vid.preload = 'metadata';
+    vid.addEventListener('loadedmetadata', () => { resolve(vid.duration); vid.src = ''; });
+    vid.addEventListener('error', () => resolve(null));
+    setTimeout(() => resolve(null), 5000);
+  });
+}
+
+function fmtDur(sec) {
+  if (!sec || isNaN(sec)) return '';
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+  return h > 0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + 'KB';
+  if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + 'MB';
+  return (bytes/1073741824).toFixed(2) + 'GB';
+}
+
+function fmtDate(ts) { return new Date(ts).toLocaleString('zh-TW'); }
+
+/* ════════════ RENDER GRID ════════════ */
 function renderGrid() {
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
-  thumbQueue.length = 0; // clear pending queue on re-render
+  thumbQueue.length = 0;
+  const flist = filteredFiles();
+  updateStats();
+  if (!flist.length) return;
 
-  const observer = new IntersectionObserver((entries) => {
+  const observer = new IntersectionObserver(entries => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
       const div = entry.target;
@@ -788,26 +616,41 @@ function renderGrid() {
       const url = div.dataset.url;
       const canvas = div.querySelector('.vid-canvas');
       const spinner = div.querySelector('.vid-spinner');
-      thumbEnqueue(() => captureFirstFrame(url, canvas, spinner));
+      const durBadge = div.querySelector('.dur-badge');
+      thumbEnqueue(() => Promise.all([
+        captureFirstFrame(url, canvas, spinner),
+        getVideoDuration(url).then(dur => { if (durBadge && dur) durBadge.textContent = fmtDur(dur); })
+      ]));
     });
-  }, { rootMargin: '300px' });
+  }, { rootMargin:'300px' });
 
-  const flist = filteredFiles();
   flist.forEach((f, i) => {
     const div = document.createElement('div');
-    div.className = 'thumb';
-    div.onclick = () => openLightboxFiltered(i);
+    div.className = 'thumb' + (favSet.has(f.name) ? ' fav' : '');
+    div.onclick = e => { if (e.target.classList.contains('fav-btn')) return; openLightboxAt(i); };
+    div.addEventListener('contextmenu', e => { e.preventDefault(); showCtxMenu(e, i); });
+
+    // fav button
+    const favBtn = document.createElement('button');
+    favBtn.className = 'fav-btn';
+    favBtn.title = '切換最愛';
+    favBtn.textContent = favSet.has(f.name) ? '⭐' : '☆';
+    favBtn.onclick = e => { e.stopPropagation(); toggleFav(f, div, favBtn); };
+    div.appendChild(favBtn);
+
+    // fav icon
+    const favIco = document.createElement('span');
+    favIco.className = 'fav-ico';
+    favIco.textContent = '⭐';
+    div.appendChild(favIco);
 
     if (f.type === 'image') {
       const img = document.createElement('img');
-      img.loading = 'lazy';
-      img.src = f.url;
-      img.alt = f.name;
+      img.loading = 'lazy'; img.src = f.url; img.alt = f.name;
       div.appendChild(img);
     } else {
       const canvas = document.createElement('canvas');
-      canvas.className = 'vid-canvas';
-      canvas.width = 4; canvas.height = 3;
+      canvas.className = 'vid-canvas'; canvas.width = 4; canvas.height = 3;
       div.appendChild(canvas);
 
       const spinner = document.createElement('div');
@@ -818,59 +661,112 @@ function renderGrid() {
       ico.className = 'vidico';
       div.appendChild(ico);
 
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = '影片';
-      div.appendChild(badge);
+      const durBadge = document.createElement('span');
+      durBadge.className = 'dur-badge';
+      div.appendChild(durBadge);
+
+      const typeBadge = document.createElement('span');
+      typeBadge.className = 'type-badge';
+      typeBadge.textContent = '影片';
+      div.appendChild(typeBadge);
 
       div.dataset.url = f.url;
       observer.observe(div);
 
-      // hover preview: lazy-create on first mouseenter
       let previewReady = false;
       div.addEventListener('mouseenter', () => {
         if (!previewReady) {
           previewReady = true;
           const preview = document.createElement('video');
           preview.className = 'vid-preview';
-          preview.src = f.url;
-          preview.muted = true;
-          preview.loop = true;
-          preview.preload = 'none';
+          preview.src = f.url; preview.muted = true; preview.loop = true; preview.preload = 'none';
           div.appendChild(preview);
           preview.play().catch(()=>{});
           div.addEventListener('mouseleave', () => { preview.pause(); preview.currentTime = 0; });
         } else {
-          const preview = div.querySelector('.vid-preview');
-          if (preview) preview.play().catch(()=>{});
+          const p = div.querySelector('.vid-preview');
+          if (p) p.play().catch(()=>{});
         }
       });
     }
+
+    // filename label
+    const fnl = document.createElement('div');
+    fnl.className = 'fname-label';
+    fnl.textContent = f.name;
+    fnl.style.display = showFname ? 'block' : 'none';
+    div.appendChild(fnl);
+
     grid.appendChild(div);
   });
 }
 
-/* ── LIGHTBOX ── */
-function openLightboxFiltered(idx) {
-  lbIndex = idx;
-  lbScale = 1; lbX = 0; lbY = 0;
-  document.getElementById('lightbox').classList.add('open');
+/* ════════════ FAV ════════════ */
+function toggleFav(f, div, btn) {
+  if (favSet.has(f.name)) {
+    favSet.delete(f.name);
+    div.classList.remove('fav');
+    btn.textContent = '☆';
+  } else {
+    favSet.add(f.name);
+    div.classList.add('fav');
+    btn.textContent = '⭐';
+  }
+  if (filterMode === 'fav') renderGrid();
+}
+
+/* ════════════ CONTEXT MENU ════════════ */
+function showCtxMenu(e, idx) {
+  ctxFileIdx = idx;
+  const m = document.getElementById('ctx-menu');
+  m.classList.add('on');
+  let x = e.clientX, y = e.clientY;
+  if (x + 165 > window.innerWidth) x = window.innerWidth - 170;
+  if (y + 120 > window.innerHeight) y = window.innerHeight - 125;
+  m.style.left = x + 'px'; m.style.top = y + 'px';
+}
+
+function hideCtxMenu() { document.getElementById('ctx-menu').classList.remove('on'); }
+
+function ctxCopyName() {
+  const f = filteredFiles()[ctxFileIdx];
+  if (f) navigator.clipboard.writeText(f.name).then(() => toast('已複製：' + f.name));
+  hideCtxMenu();
+}
+
+function ctxToggleFav() {
+  const flist = filteredFiles();
+  const f = flist[ctxFileIdx];
+  if (!f) { hideCtxMenu(); return; }
+  const thumbs = document.querySelectorAll('.thumb');
+  const div = thumbs[ctxFileIdx];
+  const btn = div ? div.querySelector('.fav-btn') : null;
+  if (div && btn) toggleFav(f, div, btn);
+  hideCtxMenu();
+}
+
+function ctxShowInfo() {
+  openLightboxAt(ctxFileIdx, true);
+  hideCtxMenu();
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('ctx-menu').contains(e.target)) hideCtxMenu();
+});
+
+/* ════════════ LIGHTBOX ════════════ */
+function openLightboxAt(idx, showInfo=false) {
+  lbIndex = idx; lbScale = 1; lbX = 0; lbY = 0;
+  document.getElementById('lightbox').classList.add('on');
+  if (showInfo && !lbInfoOpen) toggleLbInfo();
   renderLb();
 }
 
-function openLightbox(idx) {
-  // legacy: idx is index into full files array, convert to filtered index
-  const flist = filteredFiles();
-  const fi = flist.indexOf(files[idx]);
-  openLightboxFiltered(fi >= 0 ? fi : 0);
-}
-
 function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-  const m = document.getElementById('lb-media');
-  const v = m.querySelector('video');
+  document.getElementById('lightbox').classList.remove('on');
+  const v = document.getElementById('lb-media').querySelector('video');
   if (v) v.pause();
-  m.innerHTML = '';
+  document.getElementById('lb-media').innerHTML = '';
 }
 
 function renderLb() {
@@ -878,42 +774,66 @@ function renderLb() {
   if (!flist.length) return;
   const f = flist[lbIndex];
   const m = document.getElementById('lb-media');
-  const old = m.querySelector('video');
-  if (old) old.pause();
+  const oldV = m.querySelector('video');
+  if (oldV) oldV.pause();
   m.innerHTML = '';
   lbX = 0; lbY = 0;
   applyLbTransform();
 
+  const speedWrap = document.getElementById('lb-speed-wrap');
+
   if (f.type === 'image') {
     const img = document.createElement('img');
-    img.src = f.url;
-    img.draggable = false;
-    img.style.cssText = 'display:block;max-width:90vw;max-height:calc(100vh - 120px);';
+    img.src = f.url; img.draggable = false;
     m.appendChild(img);
-    document.getElementById('lb-hint').textContent = '滑鼠滾輪縮放 ｜ 拖曳移動 ｜ ← → 切換';
+    speedWrap.classList.remove('on');
+    document.getElementById('lb-hint').textContent = '滾輪縮放 ｜ 拖曳移動 ｜ ← → 切換圖片 ｜ 點黑色區域關閉';
+    img.onload = () => { document.getElementById('info-res').textContent = img.naturalWidth + ' × ' + img.naturalHeight; };
+    document.getElementById('info-res').textContent = '-';
   } else {
     const vid = document.createElement('video');
-    vid.src = f.url;
-    vid.controls = true;
-    vid.autoplay = true;
+    vid.src = f.url; vid.controls = true; vid.autoplay = true;
+    vid.playbackRate = parseFloat(document.getElementById('lb-speed-select').value);
     m.appendChild(vid);
-    // detect no-video-track (e.g. HEVC)
+    speedWrap.classList.add('on');
+    document.getElementById('lb-hint').textContent = '← → 跳±3秒 ｜ M 靜音 ｜ 點 ‹ › 切換媒體 ｜ 點黑色區域關閉';
+    vid.addEventListener('loadedmetadata', () => {
+      document.getElementById('info-res').textContent = vid.videoWidth + ' × ' + vid.videoHeight;
+    });
     vid.addEventListener('playing', () => {
       setTimeout(() => {
-        if (vid.videoWidth === 0 && !vid.paused) {
-          document.getElementById('lb-hint').textContent =
-            '⚠️ 此影片無法顯示畫面（可能為 H.265/HEVC 格式，Chrome 不支援）';
-        }
+        if (vid.videoWidth === 0 && !vid.paused)
+          document.getElementById('lb-hint').textContent = '⚠️ 無法顯示畫面（可能為 H.265/HEVC），建議改用 Edge 或 Safari';
       }, 800);
     });
-    document.getElementById('lb-hint').textContent = '← → 鍵：跳 ±3 秒 ｜ 點 < > 切換媒體';
+    document.getElementById('info-res').textContent = '-';
   }
 
   document.getElementById('lb-counter').textContent = `${lbIndex+1} / ${flist.length}`;
-  const pathSegs = navStack.map(s => s.name);
-  pathSegs.push(f.name);
-  document.getElementById('lb-name').textContent = pathSegs.join(' / ');
+  document.getElementById('lb-name').textContent = [...navStack.map(s=>s.name), f.name].join(' / ');
   updateLbZoomLabel();
+  updateLbInfoPanel(f);
+}
+
+function updateLbInfoPanel(f) {
+  document.getElementById('info-name').textContent = f.name;
+  document.getElementById('info-type').textContent = f.type === 'image' ? '圖片' : '影片';
+  document.getElementById('info-size').textContent = fmtSize(f.size);
+  document.getElementById('info-date').textContent = fmtDate(f.lastModified);
+  document.getElementById('info-path').textContent = [...navStack.map(s=>s.name), f.name].join(' / ');
+}
+
+function toggleLbInfo() {
+  lbInfoOpen = !lbInfoOpen;
+  document.getElementById('lb-info').classList.toggle('on', lbInfoOpen);
+}
+
+function cycleLbBg() {
+  const main = document.getElementById('lb-main');
+  main.classList.remove(LB_BGS[lbBg]);
+  lbBg = (lbBg+1) % LB_BGS.length;
+  main.classList.add(LB_BGS[lbBg]);
+  toast('背景：' + ['黑底','灰底','白底'][lbBg]);
 }
 
 function lbMove(dir) {
@@ -926,38 +846,32 @@ function lbMove(dir) {
 }
 
 function lbZoom(delta) {
-  lbScale = Math.max(0.1, Math.min(10, lbScale + delta));
-  applyLbTransform();
-  updateLbZoomLabel();
+  lbScale = Math.max(0.05, Math.min(10, lbScale+delta));
+  applyLbTransform(); updateLbZoomLabel();
 }
 
-function lbResetZoom() {
-  lbScale = 1; lbX = 0; lbY = 0;
-  applyLbTransform();
-  updateLbZoomLabel();
-}
+function lbResetZoom() { lbScale=1; lbX=0; lbY=0; applyLbTransform(); updateLbZoomLabel(); }
 
 function applyLbTransform() {
-  document.getElementById('lb-media').style.transform =
-    `translate(${lbX}px, ${lbY}px) scale(${lbScale})`;
+  document.getElementById('lb-media').style.transform = `translate(${lbX}px,${lbY}px) scale(${lbScale})`;
 }
 
 function updateLbZoomLabel() {
   document.getElementById('lb-zoom-val').textContent = Math.round(lbScale*100) + '%';
 }
 
-// drag
+function setLbSpeed(val) {
+  const v = document.getElementById('lb-media').querySelector('video');
+  if (v) v.playbackRate = parseFloat(val);
+}
+
+/* drag */
 const lbStage = document.getElementById('lb-stage');
-let lbDidDrag = false;
-let lbMouseDownX = 0, lbMouseDownY = 0;
 lbStage.addEventListener('mousedown', e => {
   if (e.target.classList.contains('lb-nav')) return;
-  lbDragging = true;
-  lbDidDrag = false;
-  lbMouseDownX = e.clientX;
-  lbMouseDownY = e.clientY;
-  lbDx = e.clientX - lbX;
-  lbDy = e.clientY - lbY;
+  lbDragging = true; lbDidDrag = false;
+  lbMdX = e.clientX; lbMdY = e.clientY;
+  lbDx = e.clientX - lbX; lbDy = e.clientY - lbY;
   document.getElementById('lb-media').classList.add('dragging');
 });
 lbStage.addEventListener('click', e => {
@@ -966,152 +880,106 @@ lbStage.addEventListener('click', e => {
 });
 window.addEventListener('mousemove', e => {
   if (!lbDragging) return;
-  const dx = e.clientX - lbMouseDownX;
-  const dy = e.clientY - lbMouseDownY;
-  if (Math.hypot(dx, dy) > 5) lbDidDrag = true;
-  lbX = e.clientX - lbDx;
-  lbY = e.clientY - lbDy;
+  if (Math.hypot(e.clientX-lbMdX, e.clientY-lbMdY) > 5) lbDidDrag = true;
+  lbX = e.clientX - lbDx; lbY = e.clientY - lbDy;
   applyLbTransform();
 });
 window.addEventListener('mouseup', () => {
   lbDragging = false;
   document.getElementById('lb-media').classList.remove('dragging');
 });
-
-// wheel zoom
 lbStage.addEventListener('wheel', e => {
   e.preventDefault();
   lbZoom(e.deltaY < 0 ? 0.15 : -0.15);
-}, {passive:false});
+}, { passive:false });
 
-// touch pinch
-let lastDist = 0;
+/* touch pinch */
+let lastPinchDist = 0;
 lbStage.addEventListener('touchstart', e => {
-  if (e.touches.length === 2) {
-    lastDist = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
-  }
-}, {passive:true});
+  if (e.touches.length === 2)
+    lastPinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+}, { passive:true });
 lbStage.addEventListener('touchmove', e => {
   if (e.touches.length === 2) {
-    const d = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
-    lbZoom((d - lastDist) * 0.005);
-    lastDist = d;
+    const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    lbZoom((d-lastPinchDist)*0.005); lastPinchDist = d;
   }
-}, {passive:true});
+}, { passive:true });
 
-/* ── SLIDESHOW ── */
+/* ════════════ SLIDESHOW ════════════ */
 function startSlideshow(mode) {
-  ssMode = mode;
-  ssIndex = 0;
-  ssMuted = false;
+  ssMode = mode; ssIndex = 0; ssMuted = false;
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
-  document.getElementById('ss-auto-btn').textContent = '▶ 自動播放';
-  updateMuteBtn();
-  updateStepBtns();
-  const stage = document.getElementById('ss-stage');
-  stage.className = 'mode-' + mode;
-  document.getElementById('slideshow').classList.add('open');
+  document.getElementById('ss-auto-btn').textContent = '▶ 自動';
+  updateMuteBtn(); updateStepBtns();
+  document.getElementById('ss-stage').className = 'm' + mode;
+  document.getElementById('slideshow').classList.add('on');
   renderSs();
 }
 
 function enterSlideshowFromLb() {
   const idx = lbIndex;
   closeLightbox();
-  ssMode = 1;
-  ssIndex = idx;
-  ssMuted = false;
+  ssMode = 1; ssIndex = idx; ssMuted = false;
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
-  updateMuteBtn();
-  updateStepBtns();
-  const stage = document.getElementById('ss-stage');
-  stage.className = 'mode-1';
-  document.getElementById('slideshow').classList.add('open');
+  document.getElementById('ss-auto-btn').textContent = '▶ 自動';
+  updateMuteBtn(); updateStepBtns();
+  document.getElementById('ss-stage').className = 'm1';
+  document.getElementById('slideshow').classList.add('on');
   renderSs();
 }
 
 function exitSlideshow() {
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
-  document.getElementById('ss-auto-btn').textContent = '▶ 自動播放';
+  document.getElementById('ss-auto-btn').textContent = '▶ 自動';
   pauseSsVideos();
-  document.getElementById('slideshow').classList.remove('open');
-}
-
-function toggleSsMute() {
-  ssMuted = !ssMuted;
-  document.querySelectorAll('#ss-stage video').forEach(v => { v.muted = ssMuted; });
-  updateMuteBtn();
-}
-
-function updateMuteBtn() {
-  const btn = document.getElementById('ss-mute-btn');
-  if (!btn) return;
-  btn.textContent = ssMuted ? '🔇 靜音中' : '🔊 有聲';
-}
-
-function ssStep(dir) {
-  pauseSsVideos();
-  ssIndex = (ssIndex + dir + files.length * 10) % files.length;
-  renderSs();
-  if (ssAuto) resetAutoTimer();
-}
-
-function updateStepBtns() {
-  const el = document.getElementById('ss-step-btns');
-  if (!el) return;
-  el.style.display = ssMode > 1 ? 'flex' : 'none';
+  document.getElementById('slideshow').classList.remove('on');
 }
 
 function pauseSsVideos() {
   document.querySelectorAll('#ss-stage video').forEach(v => v.pause());
 }
 
+function toggleSsMute() {
+  ssMuted = !ssMuted;
+  document.querySelectorAll('#ss-stage video').forEach(v => v.muted = ssMuted);
+  updateMuteBtn();
+}
+
+function updateMuteBtn() {
+  const btn = document.getElementById('ss-mute-btn');
+  if (btn) btn.textContent = ssMuted ? '🔇 靜音' : '🔊 有聲';
+}
+
+function updateStepBtns() {
+  const el = document.getElementById('ss-step-btns');
+  if (el) el.classList.toggle('on', ssMode > 1);
+}
+
 function renderSs() {
   const stage = document.getElementById('ss-stage');
   stage.innerHTML = '';
-  if (!files.length) return;
-
-  const count = ssMode;
-  const total = files.length;
+  const flist = filteredFiles();
+  if (!flist.length) return;
+  const count = ssMode, total = flist.length;
 
   for (let i = 0; i < count; i++) {
     const idx = (ssIndex + i) % total;
-    const f = files[idx];
+    const f = flist[idx];
     const cell = document.createElement('div');
     cell.className = 'ss-cell';
-    cell.dataset.idx = idx;
-    cell.onclick = () => {
-      exitSlideshow();
-      openLightbox(idx);
-    };
+    cell.onclick = () => { exitSlideshow(); openLightboxAt(idx); };
 
     if (f.type === 'image') {
       const img = document.createElement('img');
-      img.src = f.url;
-      img.alt = f.name;
+      img.src = f.url; img.alt = f.name;
       cell.appendChild(img);
     } else {
-      // autoplay video in slideshow
       const vid = document.createElement('video');
-      vid.src = f.url;
-      vid.muted = ssMuted;
-      vid.loop = true;
-      vid.autoplay = true;
-      vid.playsInline = true;
+      vid.src = f.url; vid.muted = ssMuted; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
       vid.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
       cell.appendChild(vid);
-      vid.play().catch(() => {
-        // browser blocked unmuted autoplay → fallback to muted
-        vid.muted = true;
-        ssMuted = true;
-        updateMuteBtn();
-        vid.play().catch(()=>{});
-      });
+      vid.play().catch(() => { vid.muted = true; ssMuted = true; updateMuteBtn(); vid.play().catch(()=>{}); });
     }
     stage.appendChild(cell);
   }
@@ -1119,24 +987,29 @@ function renderSs() {
   const endIdx = (ssIndex + count - 1) % total;
   document.getElementById('ss-counter').textContent =
     count === 1 ? `${ssIndex+1} / ${total}` : `${ssIndex+1}–${endIdx+1} / ${total}`;
-  document.getElementById('ss-name').textContent = count === 1 ? files[ssIndex].name : '';
+  document.getElementById('ss-name').textContent = count === 1 ? flist[ssIndex].name : '';
 }
 
 function ssMove(dir) {
   pauseSsVideos();
-  ssIndex = (ssIndex + dir * ssMode + files.length * 10) % files.length;
+  const total = filteredFiles().length;
+  ssIndex = (ssIndex + dir*ssMode + total*10) % total;
+  renderSs();
+  if (ssAuto) resetAutoTimer();
+}
+
+function ssStep(dir) {
+  pauseSsVideos();
+  const total = filteredFiles().length;
+  ssIndex = (ssIndex + dir + total*10) % total;
   renderSs();
   if (ssAuto) resetAutoTimer();
 }
 
 function toggleAuto() {
   ssAuto = !ssAuto;
-  document.getElementById('ss-auto-btn').textContent = ssAuto ? '⏸ 暫停' : '▶ 自動播放';
-  if (ssAuto) {
-    resetAutoTimer();
-  } else {
-    clearInterval(ssTimer);
-  }
+  document.getElementById('ss-auto-btn').textContent = ssAuto ? '⏸ 暫停' : '▶ 自動';
+  if (ssAuto) resetAutoTimer(); else clearInterval(ssTimer);
 }
 
 function resetAutoTimer() {
@@ -1144,79 +1017,90 @@ function resetAutoTimer() {
   ssTimer = setInterval(() => ssMove(1), ssIntervalSec * 1000);
 }
 
-/* ── FIT TOGGLE ── */
-let fitMode = 'crop';
-function toggleFit() {
-  fitMode = fitMode === 'crop' ? 'full' : 'crop';
-  const grid = document.getElementById('grid');
-  const btn = document.getElementById('fit-btn');
-  if (fitMode === 'full') {
-    grid.classList.add('fit-full');
-    btn.textContent = '完整';
-    btn.classList.add('active');
-  } else {
-    grid.classList.remove('fit-full');
-    btn.textContent = '裁切';
-    btn.classList.remove('active');
-  }
+/* ════════════ SHORTCUT MODAL ════════════ */
+function showShortcuts() { document.getElementById('shortcut-modal').classList.add('on'); }
+function closeShortcuts() { document.getElementById('shortcut-modal').classList.remove('on'); }
+
+/* ════════════ FAV PANEL ════════════ */
+function showFavPanel() {
+  const list = [...favSet].join('\n');
+  document.getElementById('fav-list').textContent = list || '（尚無最愛）';
+  document.getElementById('fav-count').textContent = favSet.size ? `（${favSet.size} 個）` : '';
+  document.getElementById('fav-panel').classList.add('on');
 }
 
-/* ── VIEW SWITCHING ── */
-function setView(v) {
-  document.getElementById('view-grid-btn').classList.toggle('active', v==='grid');
+function closeFavPanel() { document.getElementById('fav-panel').classList.remove('on'); }
+
+function copyFavList() {
+  if (!favSet.size) { toast('最愛清單是空的'); return; }
+  navigator.clipboard.writeText([...favSet].join('\n')).then(() => toast('已複製 ' + favSet.size + ' 個檔名'));
 }
 
-/* ── KEYBOARD ── */
+/* ════════════ KEYBOARD ════════════ */
 document.addEventListener('keydown', e => {
-  const lb = document.getElementById('lightbox').classList.contains('open');
-  const ss = document.getElementById('slideshow').classList.contains('open');
+  const lb = document.getElementById('lightbox').classList.contains('on');
+  const ss = document.getElementById('slideshow').classList.contains('on');
+  const modal = document.getElementById('shortcut-modal').classList.contains('on');
+  const fav = document.getElementById('fav-panel').classList.contains('on');
+  const searchFocused = document.activeElement === document.getElementById('search-input');
+
+  if (fav || searchFocused) return;
+  if (modal) { if (e.key==='Escape'||e.key==='?') closeShortcuts(); return; }
+  if (e.key === '?') { showShortcuts(); return; }
 
   if (lb) {
     const vid = document.getElementById('lb-media').querySelector('video');
     if (e.key === 'ArrowLeft') {
-      if (vid) { vid.currentTime = Math.max(0, vid.currentTime - 3); }
+      if (vid) { vid.currentTime = Math.max(0, vid.currentTime-3); }
       else lbMove(-1);
     } else if (e.key === 'ArrowRight') {
-      if (vid) { vid.currentTime = Math.min(vid.duration || 99999, vid.currentTime + 3); }
+      if (vid) { vid.currentTime = Math.min(vid.duration||99999, vid.currentTime+3); }
       else lbMove(1);
     } else if (e.key === 'Escape') closeLightbox();
-    else if (e.key === '+' || e.key === '=') lbZoom(0.25);
-    else if (e.key === '-') lbZoom(-0.25);
+    else if (e.key==='+' || e.key==='=') lbZoom(0.25);
+    else if (e.key==='-') lbZoom(-0.25);
+    else if (e.key==='m' || e.key==='M') {
+      if (vid) { vid.muted = !vid.muted; toast(vid.muted ? '靜音' : '取消靜音'); }
+    }
     e.preventDefault();
-  } else if (ss) {
-    if (e.key === 'ArrowLeft') ssMove(-1);
-    else if (e.key === 'ArrowRight') ssMove(1);
-    else if (e.key === 'Escape') exitSlideshow();
-    else if (e.key === ' ') toggleAuto();
-    e.preventDefault();
+    return;
+  }
+
+  if (ss) {
+    if (e.key==='ArrowLeft') ssMove(-1);
+    else if (e.key==='ArrowRight') ssMove(1);
+    else if (e.key==='Escape') exitSlideshow();
+    else if (e.key===' ') { e.preventDefault(); toggleAuto(); }
+    return;
   }
 });
 
-/* ── TOAST ── */
-let toastTimer;
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-/* ── DRAG & DROP FOLDER ── */
+/* ════════════ DRAG & DROP FOLDER ════════════ */
 document.getElementById('main').addEventListener('dragover', e => e.preventDefault());
 document.getElementById('main').addEventListener('drop', async e => {
   e.preventDefault();
-  const items = [...e.dataTransfer.items];
-  for (const item of items) {
+  for (const item of [...e.dataTransfer.items]) {
     if (item.kind === 'file') {
       try {
-        const handle = await item.getAsFileSystemHandle();
-        if (handle.kind === 'directory') { await loadDir(handle); return; }
+        const h = await item.getAsFileSystemHandle();
+        if (h.kind === 'directory') { navStack=[{handle:h,name:h.name}]; await loadDir(h); return; }
       } catch {}
     }
   }
-  toast('請拖曳資料夾而非單一檔案');
+  toast('請拖曳資料夾');
 });
+
+/* ════════════ TOAST ════════════ */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 2500);
+}
+
+/* ════════════ UTIL ════════════ */
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
 </body>
 </html>
