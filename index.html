@@ -82,6 +82,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang TC'
 .vid-spinner.done{display:none;}
 @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg);}}
 
+/* selection */
+.thumb.selected{border-color:var(--accent)!important;box-shadow:0 0 0 2px var(--accent);}
+.thumb .sel-check{position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.5);display:none;align-items:center;justify-content:center;font-size:11px;z-index:7;pointer-events:none;}
+body.select-mode .thumb .sel-check{display:flex;}
+.thumb.selected .sel-check{background:var(--accent);border-color:var(--accent);color:#000;}
+body.select-mode .thumb{cursor:default;}
+
 /* ── CONTEXT MENU ── */
 #ctx-menu{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 0;z-index:9000;min-width:155px;display:none;box-shadow:0 4px 16px rgba(0,0,0,.5);}
 #ctx-menu.on{display:block;}
@@ -191,6 +198,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang TC'
 <div id="toolbar">
   <span class="logo">◆ Gallery</span>
   <button id="folder-btn" class="tb-btn" onclick="openFolder()">📁 選取資料夾</button>
+  <div id="history-wrap" style="position:relative;flex-shrink:0;">
+    <button class="tb-btn" id="history-btn" onclick="toggleHistoryMenu()" title="歷史資料夾">▾ 歷史</button>
+    <div id="history-menu" style="display:none;position:absolute;top:34px;left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);min-width:240px;max-height:320px;overflow-y:auto;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.5);"></div>
+  </div>
   <div class="tb-sep"></div>
   <span class="tb-label">欄 <span id="col-val">4</span></span>
   <input id="col-slider" type="range" min="1" max="10" value="4" oninput="setCols(this.value)">
@@ -218,6 +229,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang TC'
   <button class="tb-btn" onclick="startSlideshow(1)">投影×1</button>
   <button class="tb-btn" onclick="startSlideshow(4)">投影×4</button>
   <button class="tb-btn" onclick="startSlideshow(9)">投影×9</button>
+  <div class="tb-sep"></div>
+  <button id="select-btn" class="tb-btn" onclick="toggleSelectMode()">☐ 選取</button>
+  <button id="select-ss-btn" class="tb-btn" style="display:none" onclick="slideshowFromSelection(1)">▶ 投影選取</button>
+  <button id="select-clear-btn" class="tb-btn" style="display:none" onclick="clearSelection()">✕ 清除選取</button>
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="showFavPanel()">📋 最愛清單</button>
   <button class="tb-btn" onclick="showShortcuts()">? 快捷鍵</button>
@@ -249,6 +264,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang TC'
 <div id="ctx-menu">
   <div class="ctx-item" onclick="ctxCopyName()">📋 複製檔名</div>
   <div class="ctx-item" onclick="ctxToggleFav()">⭐ 切換最愛</div>
+  <div class="ctx-item" onclick="ctxToggleSelect()">☐ 選取 / 取消選取</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" onclick="ctxShowInfo()">ℹ️ 檔案資訊</div>
 </div>
@@ -392,6 +408,117 @@ let ssMuted = false;
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|avi|mkv|m4v|ogv)$/i;
 
+/* ── FOLDER HISTORY ── */
+const HISTORY_KEY = 'gallery_folder_history';
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+}
+
+function saveToHistory(name) {
+  let hist = loadHistory().filter(h => h !== name);
+  hist.unshift(name);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+  renderHistoryMenu();
+}
+
+function renderHistoryMenu() {
+  const menu = document.getElementById('history-menu');
+  const hist = loadHistory();
+  if (!hist.length) {
+    menu.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text3);">（尚無歷史記錄）</div>';
+    return;
+  }
+  menu.innerHTML = hist.map((name, i) =>
+    `<div class="ctx-item" style="font-size:12px;" onclick="openHistoryItem(${i})">📁 ${esc(name)}</div>`
+  ).join('') +
+  '<div class="ctx-sep"></div>' +
+  '<div class="ctx-item" style="font-size:12px;color:var(--text3);" onclick="clearHistory()">🗑 清除歷史</div>';
+}
+
+function toggleHistoryMenu() {
+  const menu = document.getElementById('history-menu');
+  const isOpen = menu.style.display !== 'none';
+  menu.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) renderHistoryMenu();
+}
+
+async function openHistoryItem(idx) {
+  document.getElementById('history-menu').style.display = 'none';
+  toast('請重新選取相同資料夾（瀏覽器安全限制，無法記住路徑）');
+}
+
+function clearHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+  document.getElementById('history-menu').style.display = 'none';
+  toast('已清除歷史記錄');
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('history-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('history-menu').style.display = 'none';
+  }
+});
+
+/* ── SELECTION ── */
+let selectMode = false;
+let selectedIndices = new Set(); // indices into filteredFiles()
+
+function toggleSelectMode() {
+  selectMode = !selectMode;
+  document.body.classList.toggle('select-mode', selectMode);
+  document.getElementById('select-btn').classList.toggle('active', selectMode);
+  document.getElementById('select-btn').textContent = selectMode ? '☐ 選取中' : '☐ 選取';
+  if (!selectMode) clearSelection();
+  updateSelectBtns();
+}
+
+function toggleThumbSelect(idx, div) {
+  if (selectedIndices.has(idx)) {
+    selectedIndices.delete(idx);
+    div.classList.remove('selected');
+  } else {
+    selectedIndices.add(idx);
+    div.classList.add('selected');
+  }
+  updateSelectBtns();
+}
+
+function clearSelection() {
+  selectedIndices.clear();
+  document.querySelectorAll('.thumb.selected').forEach(d => d.classList.remove('selected'));
+  updateSelectBtns();
+}
+
+function updateSelectBtns() {
+  const n = selectedIndices.size;
+  const ssBtn = document.getElementById('select-ss-btn');
+  const clearBtn = document.getElementById('select-clear-btn');
+  ssBtn.style.display = n > 0 ? 'inline-block' : 'none';
+  ssBtn.textContent = `▶ 投影選取 (${n})`;
+  clearBtn.style.display = n > 0 ? 'inline-block' : 'none';
+}
+
+function slideshowFromSelection(mode) {
+  if (!selectedIndices.size) return;
+  const flist = filteredFiles();
+  // build a temporary filtered list from selection, in order
+  const selList = [...selectedIndices].sort((a,b)=>a-b).map(i => flist[i]).filter(Boolean);
+  if (!selList.length) return;
+  // temporarily replace files with selList for slideshow
+  _ssOverrideFiles = selList;
+  ssMode = mode; ssIndex = 0; ssMuted = false;
+  if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
+  document.getElementById('ss-auto-btn').textContent = '▶ 自動';
+  updateMuteBtn(); updateStepBtns();
+  document.getElementById('ss-stage').className = 'm' + mode;
+  document.getElementById('slideshow').classList.add('on');
+  renderSs();
+}
+
+let _ssOverrideFiles = null; // when set, slideshow uses this list instead of filteredFiles()
+
 /* ════════════ FOLDER NAV ════════════ */
 async function openFolder() {
   try {
@@ -433,6 +560,7 @@ async function loadDir(handle) {
   newFiles.sort((a,b) => a.name.localeCompare(b.name,'zh-TW',{numeric:true}));
   subDirs.sort((a,b) => a.name.localeCompare(b.name,'zh-TW',{numeric:true}));
   files = newFiles;
+  saveToHistory(handle.name);
   document.getElementById('drop-zone').style.display = 'none';
   renderPathbar();
   renderSubfolders(subDirs);
@@ -555,7 +683,14 @@ function captureFirstFrame(url, canvas, spinner) {
   return new Promise(resolve => {
     const vid = document.createElement('video');
     vid.src = url; vid.muted = true; vid.preload = 'metadata';
-    const done = () => { vid.src = ''; if (spinner) spinner.classList.add('done'); resolve(); };
+    vid.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
+    document.body.appendChild(vid);
+    const done = () => {
+      vid.pause(); vid.src = ''; vid.load();
+      try { document.body.removeChild(vid); } catch {}
+      if (spinner) spinner.classList.add('done');
+      resolve();
+    };
     vid.addEventListener('loadeddata', () => { vid.currentTime = 0.1; });
     vid.addEventListener('seeked', () => {
       if (canvas) {
@@ -574,9 +709,16 @@ function getVideoDuration(url) {
   return new Promise(resolve => {
     const vid = document.createElement('video');
     vid.src = url; vid.muted = true; vid.preload = 'metadata';
-    vid.addEventListener('loadedmetadata', () => { resolve(vid.duration); vid.src = ''; });
-    vid.addEventListener('error', () => resolve(null));
-    setTimeout(() => resolve(null), 5000);
+    vid.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
+    document.body.appendChild(vid);
+    const done = (val) => {
+      vid.src = ''; vid.load();
+      try { document.body.removeChild(vid); } catch {}
+      resolve(val);
+    };
+    vid.addEventListener('loadedmetadata', () => done(vid.duration));
+    vid.addEventListener('error', () => done(null));
+    setTimeout(() => done(null), 5000);
   });
 }
 
@@ -627,8 +769,18 @@ function renderGrid() {
   flist.forEach((f, i) => {
     const div = document.createElement('div');
     div.className = 'thumb' + (favSet.has(f.name) ? ' fav' : '');
-    div.onclick = e => { if (e.target.classList.contains('fav-btn')) return; openLightboxAt(i); };
+    div.onclick = e => {
+      if (e.target.classList.contains('fav-btn')) return;
+      if (selectMode) { toggleThumbSelect(i, div); return; }
+      openLightboxAt(i);
+    };
     div.addEventListener('contextmenu', e => { e.preventDefault(); showCtxMenu(e, i); });
+
+    // selection check
+    const selCheck = document.createElement('div');
+    selCheck.className = 'sel-check';
+    selCheck.textContent = '✓';
+    div.appendChild(selCheck);
 
     // fav button
     const favBtn = document.createElement('button');
@@ -742,6 +894,14 @@ function ctxToggleFav() {
   const div = thumbs[ctxFileIdx];
   const btn = div ? div.querySelector('.fav-btn') : null;
   if (div && btn) toggleFav(f, div, btn);
+  hideCtxMenu();
+}
+
+function ctxToggleSelect() {
+  if (!selectMode) toggleSelectMode();
+  const thumbs = document.querySelectorAll('.thumb');
+  const div = thumbs[ctxFileIdx];
+  if (div) toggleThumbSelect(ctxFileIdx, div);
   hideCtxMenu();
 }
 
@@ -933,8 +1093,11 @@ function exitSlideshow() {
   if (ssAuto) { clearInterval(ssTimer); ssAuto = false; }
   document.getElementById('ss-auto-btn').textContent = '▶ 自動';
   pauseSsVideos();
+  _ssOverrideFiles = null;
   document.getElementById('slideshow').classList.remove('on');
 }
+
+function ssList() { return _ssOverrideFiles || filteredFiles(); }
 
 function pauseSsVideos() {
   document.querySelectorAll('#ss-stage video').forEach(v => v.pause());
@@ -959,7 +1122,7 @@ function updateStepBtns() {
 function renderSs() {
   const stage = document.getElementById('ss-stage');
   stage.innerHTML = '';
-  const flist = filteredFiles();
+  const flist = ssList();
   if (!flist.length) return;
   const count = ssMode, total = flist.length;
 
@@ -992,7 +1155,7 @@ function renderSs() {
 
 function ssMove(dir) {
   pauseSsVideos();
-  const total = filteredFiles().length;
+  const total = ssList().length;
   ssIndex = (ssIndex + dir*ssMode + total*10) % total;
   renderSs();
   if (ssAuto) resetAutoTimer();
@@ -1000,7 +1163,7 @@ function ssMove(dir) {
 
 function ssStep(dir) {
   pauseSsVideos();
-  const total = filteredFiles().length;
+  const total = ssList().length;
   ssIndex = (ssIndex + dir + total*10) % total;
   renderSs();
   if (ssAuto) resetAutoTimer();
