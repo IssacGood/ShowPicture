@@ -155,8 +155,14 @@ body.select-mode .thumb{cursor:default;}
 #ss-stage.m1{grid-template-columns:1fr;grid-template-rows:1fr;}
 #ss-stage.m4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;}
 #ss-stage.m9{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;}
+#ss-stage.m16{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:2px;}
 .ss-cell{overflow:hidden;position:relative;background:#111;display:flex;align-items:center;justify-content:center;cursor:pointer;min-width:0;min-height:0;width:100%;height:100%;}
 .ss-cell img,.ss-cell video,.ss-cell canvas{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;}
+/* rotation */
+#lb-media.rot0{transform-origin:center center;}
+#lb-media.rot90{transform-origin:center center;}
+#lb-media.rot180{transform-origin:center center;}
+#lb-media.rot270{transform-origin:center center;}
 #ss-nav-prev,#ss-nav-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:1px solid #555;color:#fff;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:5;opacity:0;transition:opacity .3s,background .15s;}
 #slideshow:hover #ss-nav-prev,#slideshow:hover #ss-nav-next{opacity:1;}
 #ss-nav-prev:hover,#ss-nav-next:hover{background:rgba(200,169,110,.4);}
@@ -198,10 +204,6 @@ body.select-mode .thumb{cursor:default;}
 <div id="toolbar">
   <span class="logo">◆ Gallery</span>
   <button id="folder-btn" class="tb-btn" onclick="openFolder()">📁 選取資料夾</button>
-  <div id="history-wrap" style="position:relative;flex-shrink:0;">
-    <button class="tb-btn" id="history-btn" onclick="toggleHistoryMenu()" title="歷史資料夾">▾ 歷史</button>
-    <div id="history-menu" style="display:none;position:absolute;top:34px;left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);min-width:240px;max-height:320px;overflow-y:auto;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.5);"></div>
-  </div>
   <div class="tb-sep"></div>
   <span class="tb-label">欄 <span id="col-val">4</span></span>
   <input id="col-slider" type="range" min="1" max="10" value="4" oninput="setCols(this.value)">
@@ -229,6 +231,7 @@ body.select-mode .thumb{cursor:default;}
   <button class="tb-btn" onclick="startSlideshow(1)">投影×1</button>
   <button class="tb-btn" onclick="startSlideshow(4)">投影×4</button>
   <button class="tb-btn" onclick="startSlideshow(9)">投影×9</button>
+  <button class="tb-btn" onclick="startSlideshow(16)">投影×16</button>
   <div class="tb-sep"></div>
   <button id="select-btn" class="tb-btn" onclick="toggleSelectMode()">☐ 選取</button>
   <button id="select-ss-btn" class="tb-btn" style="display:none" onclick="slideshowFromSelection(1)">▶ 投影選取</button>
@@ -293,6 +296,7 @@ body.select-mode .thumb{cursor:default;}
           <option value="4">4x</option>
         </select>
       </div>
+      <button class="lb-btn" onclick="lbRotate()">↻ 旋轉</button>
       <button class="lb-btn" onclick="cycleLbBg()">🎨 背景</button>
       <button class="lb-btn" onclick="toggleLbInfo()">ℹ️ 資訊</button>
       <button class="lb-btn" onclick="enterSlideshowFromLb()">▶ 投影</button>
@@ -397,6 +401,7 @@ let lbDidDrag = false, lbMdX = 0, lbMdY = 0;
 let lbBg = 0;
 const LB_BGS = ['bg-black','bg-gray','bg-white'];
 let lbInfoOpen = false;
+let lbRotation = 0; // 0, 90, 180, 270
 
 let ssIndex = 0;
 let ssMode = 1;
@@ -407,59 +412,6 @@ let ssMuted = false;
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif|tiff?)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|avi|mkv|m4v|ogv)$/i;
-
-/* ── FOLDER HISTORY ── */
-const HISTORY_KEY = 'gallery_folder_history';
-
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
-}
-
-function saveToHistory(name) {
-  let hist = loadHistory().filter(h => h !== name);
-  hist.unshift(name);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
-  renderHistoryMenu();
-}
-
-function renderHistoryMenu() {
-  const menu = document.getElementById('history-menu');
-  const hist = loadHistory();
-  if (!hist.length) {
-    menu.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text3);">（尚無歷史記錄）</div>';
-    return;
-  }
-  menu.innerHTML = hist.map((name, i) =>
-    `<div class="ctx-item" style="font-size:12px;" onclick="openHistoryItem(${i})">📁 ${esc(name)}</div>`
-  ).join('') +
-  '<div class="ctx-sep"></div>' +
-  '<div class="ctx-item" style="font-size:12px;color:var(--text3);" onclick="clearHistory()">🗑 清除歷史</div>';
-}
-
-function toggleHistoryMenu() {
-  const menu = document.getElementById('history-menu');
-  const isOpen = menu.style.display !== 'none';
-  menu.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) renderHistoryMenu();
-}
-
-async function openHistoryItem(idx) {
-  document.getElementById('history-menu').style.display = 'none';
-  toast('請重新選取相同資料夾（瀏覽器安全限制，無法記住路徑）');
-}
-
-function clearHistory() {
-  localStorage.removeItem(HISTORY_KEY);
-  document.getElementById('history-menu').style.display = 'none';
-  toast('已清除歷史記錄');
-}
-
-document.addEventListener('click', e => {
-  const wrap = document.getElementById('history-wrap');
-  if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('history-menu').style.display = 'none';
-  }
-});
 
 /* ── SELECTION ── */
 let selectMode = false;
@@ -560,7 +512,6 @@ async function loadDir(handle) {
   newFiles.sort((a,b) => a.name.localeCompare(b.name,'zh-TW',{numeric:true}));
   subDirs.sort((a,b) => a.name.localeCompare(b.name,'zh-TW',{numeric:true}));
   files = newFiles;
-  saveToHistory(handle.name);
   document.getElementById('drop-zone').style.display = 'none';
   renderPathbar();
   renderSubfolders(subDirs);
@@ -937,7 +888,7 @@ function renderLb() {
   const oldV = m.querySelector('video');
   if (oldV) oldV.pause();
   m.innerHTML = '';
-  lbX = 0; lbY = 0;
+  lbX = 0; lbY = 0; lbRotation = 0;
   applyLbTransform();
 
   const speedWrap = document.getElementById('lb-speed-wrap');
@@ -1012,8 +963,14 @@ function lbZoom(delta) {
 
 function lbResetZoom() { lbScale=1; lbX=0; lbY=0; applyLbTransform(); updateLbZoomLabel(); }
 
+function lbRotate() {
+  lbRotation = (lbRotation + 90) % 360;
+  applyLbTransform();
+}
+
 function applyLbTransform() {
-  document.getElementById('lb-media').style.transform = `translate(${lbX}px,${lbY}px) scale(${lbScale})`;
+  document.getElementById('lb-media').style.transform =
+    `translate(${lbX}px,${lbY}px) scale(${lbScale}) rotate(${lbRotation}deg)`;
 }
 
 function updateLbZoomLabel() {
@@ -1118,7 +1075,6 @@ function updateStepBtns() {
   const el = document.getElementById('ss-step-btns');
   if (el) el.classList.toggle('on', ssMode > 1);
 }
-
 function renderSs() {
   const stage = document.getElementById('ss-stage');
   stage.innerHTML = '';
