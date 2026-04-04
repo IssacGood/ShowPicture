@@ -72,10 +72,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang TC'
 .thumb:hover .vidico{opacity:0;}
 .dur-badge{position:absolute;bottom:22px;right:4px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:1px 5px;border-radius:3px;z-index:4;pointer-events:none;}
 .type-badge{position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:1px 5px;border-radius:3px;z-index:4;}
-.fav-ico{position:absolute;top:4px;right:4px;font-size:13px;z-index:5;opacity:0;pointer-events:none;transition:opacity .15s;}
-.thumb:hover .fav-ico{opacity:.4;}
-.thumb.fav .fav-ico{opacity:1!important;filter:drop-shadow(0 0 3px rgba(200,169,110,.7));}
-.fav-btn{position:absolute;top:2px;right:2px;z-index:6;background:transparent;border:none;cursor:pointer;font-size:15px;padding:3px;line-height:1;opacity:0;transition:opacity .15s;}
+.fav-ico{position:absolute;top:4px;right:4px;font-size:20px;z-index:5;opacity:0;pointer-events:none;transition:opacity .15s;}
+.thumb:hover .fav-ico{opacity:.5;}
+.thumb.fav .fav-ico{opacity:1!important;filter:drop-shadow(0 0 4px rgba(200,169,110,.8));}
+.fav-btn{position:absolute;top:2px;right:2px;z-index:6;background:transparent;border:none;cursor:pointer;font-size:20px;padding:4px;line-height:1;opacity:0;transition:opacity .15s;}
 .thumb:hover .fav-btn{opacity:1;}
 .fname-label{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);color:var(--text2);font-size:10px;padding:3px 5px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;z-index:4;pointer-events:none;}
 .vid-spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;z-index:4;pointer-events:none;}
@@ -84,10 +84,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang TC'
 
 /* selection */
 .thumb.selected{border-color:var(--accent)!important;box-shadow:0 0 0 2px var(--accent);}
-.thumb .sel-check{position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.5);display:none;align-items:center;justify-content:center;font-size:11px;z-index:7;pointer-events:none;}
-body.select-mode .thumb .sel-check{display:flex;}
-.thumb.selected .sel-check{background:var(--accent);border-color:var(--accent);color:#000;}
-body.select-mode .thumb{cursor:default;}
+.thumb .sel-check{position:absolute;top:5px;left:5px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;font-size:13px;z-index:7;pointer-events:none;opacity:0;transition:opacity .15s;}
+body.select-mode .thumb .sel-check{opacity:.5;}
+body.select-mode .thumb:hover .sel-check{opacity:1;}
+.thumb.selected .sel-check{background:var(--accent)!important;border-color:var(--accent)!important;color:#000;opacity:1!important;}
+body.select-mode .thumb{cursor:pointer;}
+
+/* fav hint bar */
+#fav-hint-bar{display:none;background:rgba(200,169,110,.12);border-top:1px solid var(--accent2);color:var(--accent);font-size:12px;text-align:center;padding:6px;flex-shrink:0;}
+#fav-hint-bar.on{display:block;}
 
 /* ── CONTEXT MENU ── */
 #ctx-menu{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 0;z-index:9000;min-width:155px;display:none;box-shadow:0 4px 16px rgba(0,0,0,.5);}
@@ -251,6 +256,9 @@ body.select-mode .thumb{cursor:default;}
 
 <!-- SUBFOLDERS -->
 <div id="subfolders"></div>
+
+<!-- FAV HINT -->
+<div id="fav-hint-bar">⭐ 最愛篩選中 — 點上方「全部」可回到全部顯示</div>
 
 <!-- MAIN -->
 <div id="main">
@@ -421,7 +429,7 @@ function toggleSelectMode() {
   selectMode = !selectMode;
   document.body.classList.toggle('select-mode', selectMode);
   document.getElementById('select-btn').classList.toggle('active', selectMode);
-  document.getElementById('select-btn').textContent = selectMode ? '☐ 選取中' : '☐ 選取';
+  document.getElementById('select-btn').textContent = selectMode ? '✕ 退出選取' : '☐ 選取';
   if (!selectMode) clearSelection();
   updateSelectBtns();
 }
@@ -448,7 +456,7 @@ function updateSelectBtns() {
   const ssBtn = document.getElementById('select-ss-btn');
   const clearBtn = document.getElementById('select-clear-btn');
   ssBtn.style.display = n > 0 ? 'inline-block' : 'none';
-  ssBtn.textContent = `▶ 投影選取 (${n})`;
+  ssBtn.textContent = `▶ 投影這 ${n} 張`;
   clearBtn.style.display = n > 0 ? 'inline-block' : 'none';
 }
 
@@ -558,6 +566,7 @@ function setFilter(mode) {
   ['all','image','video','fav'].forEach(m => {
     document.getElementById('filter-'+m+'-btn').classList.toggle('active', m === mode);
   });
+  document.getElementById('fav-hint-bar').classList.toggle('on', mode === 'fav');
   renderGrid();
 }
 
@@ -726,6 +735,19 @@ function renderGrid() {
       openLightboxAt(i);
     };
     div.addEventListener('contextmenu', e => { e.preventDefault(); showCtxMenu(e, i); });
+
+    // long press → enter select mode
+    let pressTimer = null;
+    div.addEventListener('pointerdown', e => {
+      if (e.target.classList.contains('fav-btn')) return;
+      pressTimer = setTimeout(() => {
+        if (!selectMode) toggleSelectMode();
+        toggleThumbSelect(i, div);
+        pressTimer = null;
+      }, 500);
+    });
+    div.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+    div.addEventListener('pointermove', () => { clearTimeout(pressTimer); pressTimer = null; });
 
     // selection check
     const selCheck = document.createElement('div');
