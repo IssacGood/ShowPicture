@@ -239,7 +239,10 @@ body.select-mode .thumb{cursor:pointer;}
   <button class="tb-btn" onclick="startSlideshow(16)">投影×16</button>
   <div class="tb-sep"></div>
   <button id="select-btn" class="tb-btn" onclick="toggleSelectMode()">☐ 選取</button>
-  <button id="select-ss-btn" class="tb-btn" style="display:none" onclick="slideshowFromSelection(1)">▶ 投影選取</button>
+  <button id="select-ss-btn" class="tb-btn" style="display:none" onclick="slideshowFromSelection(1)">▶ ×1</button>
+  <button id="select-ss4-btn" class="tb-btn" style="display:none" onclick="slideshowFromSelection(4)">▶ ×4</button>
+  <button id="select-ss9-btn" class="tb-btn" style="display:none" onclick="slideshowFromSelection(9)">▶ ×9</button>
+  <button id="select-ss16-btn" class="tb-btn" style="display:none" onclick="slideshowFromSelection(16)">▶ ×16</button>
   <button id="select-clear-btn" class="tb-btn" style="display:none" onclick="clearSelection()">✕ 清除選取</button>
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="showFavPanel()">📋 最愛清單</button>
@@ -453,11 +456,17 @@ function clearSelection() {
 
 function updateSelectBtns() {
   const n = selectedIndices.size;
-  const ssBtn = document.getElementById('select-ss-btn');
-  const clearBtn = document.getElementById('select-clear-btn');
-  ssBtn.style.display = n > 0 ? 'inline-block' : 'none';
-  ssBtn.textContent = `▶ 投影這 ${n} 張`;
-  clearBtn.style.display = n > 0 ? 'inline-block' : 'none';
+  const show = n > 0;
+  const label = `投影選取(${n}) `;
+  document.getElementById('select-ss-btn').style.display = show ? 'inline-block' : 'none';
+  document.getElementById('select-ss-btn').textContent = label + '×1';
+  document.getElementById('select-ss4-btn').style.display = show ? 'inline-block' : 'none';
+  document.getElementById('select-ss4-btn').textContent = label + '×4';
+  document.getElementById('select-ss9-btn').style.display = show ? 'inline-block' : 'none';
+  document.getElementById('select-ss9-btn').textContent = label + '×9';
+  document.getElementById('select-ss16-btn').style.display = show ? 'inline-block' : 'none';
+  document.getElementById('select-ss16-btn').textContent = label + '×16';
+  document.getElementById('select-clear-btn').style.display = show ? 'inline-block' : 'none';
 }
 
 function slideshowFromSelection(mode) {
