@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAULT — Media Player</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
+  :root {
+    --bg:#0a0a0c;--bg2:#111116;--bg3:#18181f;
+    --border:#2a2a35;--border2:#3a3a48;
+    --accent:#e8ff47;--accent2:#ff6b35;
+    --text:#e8e8f0;--text2:#888899;--text3:#555566;
+    --panel:#13131a;--hover:#1e1e28;--cell-bg:#0d0d12;
+    --radius:6px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none;}
+
+  #topbar{display:flex;align-items:center;gap:9px;padding:0 13px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;overflow-x:auto;}
+  #topbar::-webkit-scrollbar{height:0;}
+  .logo{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);letter-spacing:3px;flex-shrink:0;}
+  .sep{width:1px;height:22px;background:var(--border);flex-shrink:0;}
+  .top-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+  .top-btn:hover{background:var(--hover);border-color:var(--border2);color:var(--text);}
+  .top-btn.accent{background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:500;}
+  .top-btn.accent:hover{filter:brightness(1.1);}
+  .layout-group{display:flex;gap:3px;flex-shrink:0;}
+  .layout-btn{width:29px;height:25px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .15s;padding:0;flex-shrink:0;}
+  .layout-btn:hover{background:var(--hover);}
+  .layout-btn.active{background:var(--accent);border-color:var(--accent);}
+  .layout-btn.active svg rect{fill:#000!important;}
+
+  #ffmpeg-status{display:flex;align-items:center;gap:5px;padding:4px 9px;background:rgba(232,255,71,.05);border:1px solid rgba(232,255,71,.18);border-radius:var(--radius);font-family:'Space Mono',monospace;font-size:10px;color:var(--accent);flex-shrink:0;cursor:pointer;}
+  #ffmpeg-status .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 1.4s infinite;}
+  #ffmpeg-status.ready{color:#47ff8a;border-color:rgba(71,255,138,.22);background:rgba(71,255,138,.04);}
+  #ffmpeg-status.ready .dot{background:#47ff8a;animation:none;}
+  #ffmpeg-status.error{color:var(--accent2);border-color:rgba(255,107,53,.22);background:rgba(255,107,53,.04);}
+  #ffmpeg-status.error .dot{background:var(--accent2);animation:none;}
+  #ffmpeg-status.idle{color:var(--text3);border-color:var(--border);background:transparent;}
+  #ffmpeg-status.idle .dot{background:var(--text3);animation:none;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+  #main{display:flex;flex:1;overflow:hidden;}
+
+  #sidebar{width:225px;min-width:140px;max-width:420px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;position:relative;}
+  #sidebar-header{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
+  #sidebar-header span{font-family:'Space Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;}
+  #file-count{margin-left:auto;font-family:'Space Mono',monospace;font-size:10px;color:var(--text3);}
+  #search-box{margin:7px 8px;padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;transition:border-color .15s;}
+  #search-box:focus{border-color:var(--accent);}
+  #search-box::placeholder{color:var(--text3);}
+  #file-list{flex:1;overflow-y:auto;overflow-x:hidden;padding:3px 0;}
+  #file-list::-webkit-scrollbar{width:3px;}
+  #file-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+  .file-item{display:flex;align-items:center;gap:7px;padding:5px 11px;cursor:pointer;transition:background .1s;font-size:12px;color:var(--text2);}
+  .file-item:hover{background:var(--hover);color:var(--text);}
+  .file-item.active{background:rgba(232,255,71,.08);color:var(--accent);}
+  .file-item .icon{font-size:12px;flex-shrink:0;}
+  .file-item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .file-item .ext{font-family:'Space Mono',monospace;font-size:9px;color:var(--text3);flex-shrink:0;}
+  .file-item .conv-badge{font-size:9px;color:var(--accent2);flex-shrink:0;}
+  #sidebar-resize{position:absolute;top:0;right:0;width:4px;height:100%;cursor:ew-resize;z-index:10;}
+  #sidebar-resize:hover{background:rgba(232,255,71,.25);}
+  .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;gap:8px;color:var(--text3);font-size:12px;text-align:center;padding:16px;}
+  .empty-state .big{font-size:26px;}
+
+  #viewer{flex:1;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+  #drop-overlay{position:absolute;inset:0;background:rgba(232,255,71,.03);border:2px dashed var(--accent);display:none;align-items:center;justify-content:center;z-index:200;font-family:'Space Mono',monospace;font-size:13px;color:var(--accent);letter-spacing:2px;pointer-events:none;}
+  #drop-overlay.show{display:flex;}
+
+  #cells-container{flex:1;display:grid;overflow:hidden;gap:2px;padding:2px;}
+  .layout-1{grid-template-columns:1fr;grid-template-rows:1fr;}
+  .layout-2{grid-template-columns:1fr 1fr;grid-template-rows:1fr;}
+  .layout-4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+
+  .cell{background:var(--cell-bg);border:1px solid var(--border);border-radius:var(--radius);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;transition:border-color .15s;}
+  .cell:hover{border-color:var(--border2);}
+  .cell.drag-over{border-color:var(--accent);background:rgba(232,255,71,.04);}
+  .cell.flash{border-color:rgba(232,255,71,.5);}
+  .cell-empty-hint{display:flex;flex-direction:column;align-items:center;gap:7px;color:var(--text3);font-size:11px;pointer-events:none;}
+  .cell-empty-hint .plus{font-size:24px;line-height:1;color:var(--border2);}
+  .cell-num{position:absolute;top:6px;left:8px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text3);pointer-events:none;z-index:5;}
+  .cell-title{position:absolute;top:6px;right:26px;max-width:55%;font-size:10px;color:rgba(255,255,255,.3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;z-index:5;}
+  .cell-close{position:absolute;top:4px;right:4px;width:18px;height:18px;background:rgba(0,0,0,.6);border:1px solid var(--border2);border-radius:50%;color:var(--text2);font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:20;transition:all .15s;}
+  .cell:hover .cell-close{display:flex;}
+  .cell-close:hover{background:#c0392b;border-color:#c0392b;color:#fff;}
+
+  .cell-converting{position:absolute;inset:0;background:rgba(10,10,12,.92);display:none;flex-direction:column;align-items:center;justify-content:center;gap:11px;z-index:50;}
+  .cell-converting.show{display:flex;}
+  .conv-title{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:1px;}
+  .conv-pct{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--accent);}
+  .conv-bar-wrap{width:150px;height:3px;background:var(--border);border-radius:2px;}
+  .conv-bar-fill{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .3s;}
+  .conv-fname{font-size:10px;color:var(--text3);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Space Mono',monospace;}
+
+  .cell-media-wrap{position:absolute;inset:0;overflow:hidden;cursor:grab;}
+  .cell-media-wrap.grabbing{cursor:grabbing;}
+  .cell-media-wrap img,.cell-media-wrap video{position:absolute;transform-origin:center center;max-width:none;max-height:none;pointer-events:none;display:block;}
+
+  .cell-controls{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.88));padding:20px 9px 7px;display:flex;flex-direction:column;gap:4px;opacity:0;transition:opacity .2s;z-index:10;pointer-events:none;}
+  .cell:hover .cell-controls{opacity:1;pointer-events:auto;}
+  .progress-bar-wrap{width:100%;height:3px;background:rgba(255,255,255,.2);border-radius:2px;cursor:pointer;}
+  .progress-bar-wrap:hover{height:5px;}
+  .progress-bar-fill{height:100%;background:var(--accent);border-radius:2px;pointer-events:none;}
+  .ctrl-row{display:flex;align-items:center;gap:5px;}
+  .ctrl-btn{background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;padding:2px 3px;font-size:12px;transition:color .1s;line-height:1;display:flex;align-items:center;}
+  .ctrl-btn:hover{color:var(--accent);}
+  .vol-slider{-webkit-appearance:none;width:54px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer;}
+  .vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;border-radius:50%;background:var(--accent);cursor:pointer;}
+  .time-label{font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.4);margin-left:auto;}
+
+  #statusbar{height:24px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:12px;flex-shrink:0;overflow:hidden;}
+  #statusbar span{font-family:'Space Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.5px;white-space:nowrap;}
+  #status-msg{color:var(--accent)!important;}
+
+  /* Toast */
+  #toast{position:fixed;bottom:34px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 16px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .3s;z-index:999;}
+  #toast.show{opacity:1;}
+
+  ::-webkit-scrollbar{width:4px;height:4px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">VAULT</div>
+  <div class="sep"></div>
+  <div class="layout-group">
+    <button class="layout-btn active" id="btn-l1" title="單格" onclick="setLayout(1)">
+      <svg width="15" height="13" viewBox="0 0 15 13"><rect x="1" y="1" width="13" height="11" rx="1" fill="rgba(255,255,255,.55)"/></svg>
+    </button>
+    <button class="layout-btn" id="btn-l2" title="雙格" onclick="setLayout(2)">
+      <svg width="15" height="13" viewBox="0 0 15 13"><rect x="1" y="1" width="5.5" height="11" rx="1" fill="rgba(255,255,255,.55)"/><rect x="8.5" y="1" width="5.5" height="11" rx="1" fill="rgba(255,255,255,.55)"/></svg>
+    </button>
+    <button class="layout-btn" id="btn-l4" title="四格" onclick="setLayout(4)">
+      <svg width="15" height="13" viewBox="0 0 15 13"><rect x="1" y="1" width="5.5" height="4.5" rx="1" fill="rgba(255,255,255,.55)"/><rect x="8.5" y="1" width="5.5" height="4.5" rx="1" fill="rgba(255,255,255,.55)"/><rect x="1" y="7.5" width="5.5" height="4.5" rx="1" fill="rgba(255,255,255,.55)"/><rect x="8.5" y="7.5" width="5.5" height="4.5" rx="1" fill="rgba(255,255,255,.55)"/></svg>
+    </button>
+  </div>
+  <div class="sep"></div>
+  <button class="top-btn" onclick="randomPlay(1)">🎲 隨機推薦</button>
+  <button class="top-btn" onclick="randomPlay(2)">🎲×2</button>
+  <button class="top-btn" onclick="randomPlay(4)">🎲×4</button>
+  <div class="sep"></div>
+  <div id="ffmpeg-status" class="idle" onclick="retryFFmpeg()" title="點擊重試載入">
+    <div class="dot"></div>
+    <span id="ffmpeg-label">FFmpeg 未載入</span>
+  </div>
+  <div class="sep"></div>
+  <button class="top-btn accent" onclick="openFolder()">📂 選擇資料夾</button>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <span>FILES</span>
+      <span id="file-count">—</span>
+    </div>
+    <input id="search-box" type="text" placeholder="搜尋..." oninput="filterFiles(this.value)">
+    <div id="file-list">
+      <div class="empty-state"><div class="big">📁</div><div>選擇資料夾後<br>檔案將顯示於此</div></div>
+    </div>
+    <div id="sidebar-resize"></div>
+  </div>
+  <div id="viewer">
+    <div id="drop-overlay">拖曳檔案至此</div>
+    <div id="cells-container" class="layout-1"></div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <span id="status-msg">就緒</span>
+  <span>·</span>
+  <span id="status-layout">單格模式</span>
+  <span>·</span>
+  <span id="status-files">0 個檔案</span>
+  <span>·</span>
+  <span>滾輪縮放 · 左鍵拖曳 · 雙擊重置</span>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="folder-input" webkitdirectory multiple style="display:none">
+<input type="file" id="file-input" multiple accept="video/*,image/*" style="display:none">
+
+<script>
+// ══════════════════════════════════════════════════
+// FFmpeg — load via classic <script> tags (no Worker / no ES module)
+// Uses @ffmpeg/ffmpeg@0.11.x which works with file:// via UMD build
+// ══════════════════════════════════════════════════
+let ffmpegReady = false;
+let ffmpegLoading = false;
+let ffmpegObj = null;   // { createFFmpeg, fetchFile } from 0.11 UMD
+
+const FFMPEG_JS  = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+const CORE_PATH  = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js';
+
+function setFFmpegStatus(state, text) {
+  const el = document.getElementById('ffmpeg-status');
+  const lb = document.getElementById('ffmpeg-label');
+  el.className = state;   // 'idle' | 'ready' | 'error' | '' (loading)
+  lb.textContent = text;
+}
+
+async function initFFmpeg() {
+  if (ffmpegReady || ffmpegLoading) return;
+  ffmpegLoading = true;
+  setFFmpegStatus('', 'FFmpeg 載入中…');
+
+  try {
+    // Dynamically inject script tag (works under file://)
+    await loadScript(FFMPEG_JS);
+
+    const { createFFmpeg, fetchFile } = window.FFmpeg;  // UMD global
+    const ff = createFFmpeg({
+      corePath: CORE_PATH,
+      log: false,
+    });
+
+    setFFmpegStatus('', '核心下載中…');
+    await ff.load();
+
+    ffmpegObj = { ff, fetchFile };
+    ffmpegReady = true;
+    ffmpegLoading = false;
+    setFFmpegStatus('ready', 'FFmpeg 就緒');
+    setStatus('FFmpeg 就緒 — 支援 AVI / MKV / MOV / FLV 等格式');
+    toast('FFmpeg 就緒，可播放 AVI/MKV 等格式');
+  } catch(e) {
+    ffmpegLoading = false;
+    console.warn('FFmpeg error:', e);
+    setFFmpegStatus('error', 'FFmpeg 失敗（點擊重試）');
+    setStatus('FFmpeg 載入失敗：' + e.message);
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.crossOrigin = 'anonymous';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Script load failed: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+window.retryFFmpeg = () => {
+  if (ffmpegReady) return;
+  ffmpegLoading = false;
+  initFFmpeg();
+};
+
+// transcode file → blob URL (mp4)
+async function transcodeToMp4(file, onProgress) {
+  const { ff, fetchFile } = ffmpegObj;
+  const inName  = 'input.'  + getExt(file.name);
+  const outName = 'output.mp4';
+
+  ff.setProgress(({ ratio }) => onProgress && onProgress(Math.max(0, Math.min(1, ratio))));
+
+  await ff.writeFile(inName, await fetchFile(file));
+  await ff.run('-i', inName,
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+    '-c:a', 'aac', '-b:a', '128k',
+    '-movflags', '+faststart',
+    '-y', outName);
+
+  const data = await ff.readFile(outName);
+  try { await ff.unlink(inName); } catch(_){}
+  try { await ff.unlink(outName); } catch(_){}
+
+  ff.setProgress(()=>{});
+  return URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+}
+
+// ══════════════════════════════════════════════════
+// Format / type helpers
+// ══════════════════════════════════════════════════
+const NATIVE_EXTS = new Set(['mp4','webm','ogg','m4v']);
+const VIDEO_EXTS  = new Set(['mp4','webm','ogg','mkv','mov','avi','m4v','flv','wmv','ts','3gp','mpeg','mpg','vob','rm','rmvb','divx','asf','f4v']);
+const IMAGE_EXTS  = new Set(['jpg','jpeg','png','gif','webp','bmp','svg','avif','tiff','tif']);
+
+function getExt(name)  { return name.split('.').pop().toLowerCase(); }
+function isVideo(ext)  { return VIDEO_EXTS.has(ext); }
+function isImage(ext)  { return IMAGE_EXTS.has(ext); }
+function needsTc(ext)  { return VIDEO_EXTS.has(ext) && !NATIVE_EXTS.has(ext); }
+
+// ══════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════
+let allFiles = [], filteredFiles = [];
+let currentLayout = 1, cells = [], activeCell = 0;
+let dragFileIdx = null;
+
+// ══════════════════════════════════════════════════
+// Folder / file pickers
+// ══════════════════════════════════════════════════
+function openFolder() { document.getElementById('folder-input').click(); }
+document.getElementById('folder-input').addEventListener('change', e => { loadFiles([...e.target.files]); e.target.value=''; });
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) openMediaInCell(e.target.files[0], activeCell);
+  e.target.value='';
+});
+
+function loadFiles(list) {
+  allFiles.forEach(f => f.url && URL.revokeObjectURL(f.url));
+  allFiles = list
+    .filter(f => { const x=getExt(f.name); return isVideo(x)||isImage(x); })
+    .map(f => { const x=getExt(f.name); return {name:f.name,ext:x,type:isVideo(x)?'video':'image',file:f,url:null}; })
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  filteredFiles = [...allFiles];
+  renderFileList();
+  document.getElementById('status-files').textContent = allFiles.length+' 個檔案';
+  document.getElementById('file-count').textContent = allFiles.length;
+  setStatus('已載入 '+allFiles.length+' 個媒體檔案');
+}
+
+function getBlobUrl(item) { if (!item.url) item.url=URL.createObjectURL(item.file); return item.url; }
+
+// ══════════════════════════════════════════════════
+// File list rendering
+// ══════════════════════════════════════════════════
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  if (!filteredFiles.length) { el.innerHTML='<div class="empty-state"><div class="big">🔍</div><div>沒有媒體檔案</div></div>'; return; }
+  el.innerHTML = filteredFiles.map((f,i)=>{
+    const icon = f.type==='video'?'🎬':'🖼️';
+    const badge = (f.type==='video'&&needsTc(f.ext)) ? '<span class="conv-badge" title="需轉碼">⚙</span>' : '';
+    return `<div class="file-item" data-type="${f.type}" data-idx="${i}" draggable="true"
+      onclick="fileClick(${i})" ondragstart="fileDragStart(event,${i})">
+      <span class="icon">${icon}</span>
+      <span class="name" title="${esc(f.name)}">${esc(f.name.replace(/\.[^.]+$/,''))}</span>
+      ${badge}<span class="ext">.${f.ext}</span></div>`;
+  }).join('');
+}
+
+function filterFiles(q) {
+  q=q.trim().toLowerCase();
+  filteredFiles = q?allFiles.filter(f=>f.name.toLowerCase().includes(q)):[...allFiles];
+  document.getElementById('file-count').textContent = filteredFiles.length;
+  renderFileList();
+}
+
+function fileClick(i) {
+  const item = filteredFiles[i];
+  const t = getNextEmpty();
+  openMediaInCell(item.file, t, item.url||null);
+  document.querySelectorAll('.file-item').forEach(el=>el.classList.remove('active'));
+  document.querySelector(`.file-item[data-idx="${i}"]`)?.classList.add('active');
+}
+
+function fileDragStart(e,i) { dragFileIdx=i; e.dataTransfer.setData('text/plain','sidebar'); e.dataTransfer.effectAllowed='copy'; }
+
+function getNextEmpty() { for(let i=0;i<cells.length;i++) if(!cells[i].hasMedia) return i; return 0; }
+
+// ══════════════════════════════════════════════════
+// Layout
+// ══════════════════════════════════════════════════
+const LAYOUT_NAMES = {1:'單格模式',2:'雙格模式',4:'四格模式'};
+
+function setLayout(n) {
+  currentLayout=n;
+  [1,2,4].forEach(x=>document.getElementById('btn-l'+x).classList.toggle('active',x===n));
+  document.getElementById('status-layout').textContent = LAYOUT_NAMES[n];
+  buildCells(n);
+}
+
+function buildCells(n) {
+  const container = document.getElementById('cells-container');
+  container.className = 'layout-'+n;
+  const saved = cells.map(c=>({has:c.hasMedia,type:c.mediaType,url:c.mediaUrl,name:c.mediaName}));
+  cells.forEach(c=>c.destroy());
+  cells=[]; container.innerHTML='';
+  for(let i=0;i<n;i++) {
+    const c=createCell(i,container); cells.push(c);
+    if(saved[i]?.has) c.loadMedia(saved[i].url,saved[i].type,saved[i].name);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// Open media in cell
+// ══════════════════════════════════════════════════
+async function openMediaInCell(fileObj, cellIdx, preUrl) {
+  if (cellIdx>=cells.length) return;
+  const x = getExt(fileObj.name);
+  const type = isVideo(x)?'video':'image';
+
+  // Native or image → direct
+  if (type==='image' || !needsTc(x)) {
+    cells[cellIdx].loadMedia(preUrl||URL.createObjectURL(fileObj), type, fileObj.name);
+    activeCell=cellIdx; setStatus('已載入: '+fileObj.name); return;
+  }
+
+  // Needs transcode
+  activeCell=cellIdx;
+  const cell=cells[cellIdx];
+
+  if (!ffmpegReady) {
+    // Play natively anyway and warn
+    cell.loadMedia(preUrl||URL.createObjectURL(fileObj), type, fileObj.name);
+    setStatus('FFmpeg 尚未就緒，嘗試原生播放 '+fileObj.name);
+    toast('FFmpeg 未就緒，AVI/MKV 可能無法播放。等待載入後重試。');
+    return;
+  }
+
+  cell.showConverting(fileObj.name,0);
+  setStatus('轉碼中: '+fileObj.name);
+  try {
+    const mp4 = await transcodeToMp4(fileObj, p=>{
+      cell.showConverting(fileObj.name, Math.round(p*100));
+    });
+    cell.hideConverting();
+    cell.loadMedia(mp4,'video',fileObj.name);
+    setStatus('已載入: '+fileObj.name);
+  } catch(e) {
+    cell.hideConverting();
+    setStatus('轉碼失敗: '+e.message);
+    cell.loadMedia(preUrl||URL.createObjectURL(fileObj),type,fileObj.name);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// Random play
+// ══════════════════════════════════════════════════
+function randomPlay(count) {
+  const vids=allFiles.filter(f=>f.type==='video');
+  if (!vids.length) { toast('請先選擇包含影片的資料夾'); return; }
+  const n=Math.min(count,vids.length);
+  if (count>currentLayout) setLayout(count);
+  cells.forEach((_,i)=>clearCell(i));
+  shuffle([...vids]).slice(0,n).forEach((item,i)=>openMediaInCell(item.file,i,item.url||null));
+  setStatus('隨機播放 '+n+' 個影片');
+}
+
+function shuffle(a) { for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a; }
+
+// ══════════════════════════════════════════════════
+// Clear cell
+// ══════════════════════════════════════════════════
+function clearCell(i) {
+  if (i>=cells.length) return;
+  const s=cells[i],el=s.el;
+  s.destroy();
+  el.querySelector('.cell-media-wrap').innerHTML='';
+  el.querySelector('.cell-media-wrap').style.display='none';
+  el.querySelector('.cell-empty-hint').style.display='flex';
+  el.querySelector('.cell-controls').style.display='none';
+  el.querySelector('.cell-title').textContent='';
+  el.querySelector('.cell-converting').classList.remove('show');
+  Object.assign(s,{hasMedia:false,mediaType:null,mediaUrl:null,mediaName:null,mediaEl:null});
+}
+
+// ══════════════════════════════════════════════════
+// Cell factory
+// ══════════════════════════════════════════════════
+function createCell(idx, container) {
+  const el=document.createElement('div');
+  el.className='cell';
+  el.innerHTML=`
+    <div class="cell-num">${idx+1}</div>
+    <div class="cell-title"></div>
+    <button class="cell-close">✕</button>
+    <div class="cell-empty-hint"><div class="plus">+</div><div>拖曳或點擊</div></div>
+    <div class="cell-converting">
+      <div class="conv-title">TRANSCODING</div>
+      <div class="conv-pct">0%</div>
+      <div class="conv-bar-wrap"><div class="conv-bar-fill"></div></div>
+      <div class="conv-fname"></div>
+    </div>
+    <div class="cell-media-wrap" style="display:none"></div>
+    <div class="cell-controls" style="display:none">
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:0%"></div></div>
+      <div class="ctrl-row">
+        <button class="ctrl-btn play-btn">⏸</button>
+        <button class="ctrl-btn mute-btn">🔇</button>
+        <input type="range" class="vol-slider" min="0" max="1" step="0.01" value="0">
+        <button class="ctrl-btn fs-btn" title="全螢幕">⛶</button>
+        <span class="time-label">0:00 / 0:00</span>
+      </div>
+    </div>`;
+  container.appendChild(el);
+
+  const state={
+    el,idx,hasMedia:false,mediaType:null,mediaUrl:null,mediaName:null,mediaEl:null,
+    zoom:1,offsetX:0,offsetY:0,baseW:0,baseH:0,
+    _interactDone:false,
+    destroy(){ if(this.mediaEl?.tagName==='VIDEO'){this.mediaEl.pause();this.mediaEl.src='';} },
+    showConverting(name,pct){
+      const c=el.querySelector('.cell-converting'); c.classList.add('show');
+      c.querySelector('.conv-pct').textContent=pct+'%';
+      c.querySelector('.conv-bar-fill').style.width=pct+'%';
+      c.querySelector('.conv-fname').textContent=name;
+      el.querySelector('.cell-empty-hint').style.display='none';
+    },
+    hideConverting(){ el.querySelector('.cell-converting').classList.remove('show'); }
+  };
+
+  // Drop
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('drag-over');
+    if(dragFileIdx!==null){
+      const item=filteredFiles[dragFileIdx];
+      openMediaInCell(item.file,idx,item.url||null);
+      dragFileIdx=null;
+    } else if(e.dataTransfer.files[0]) openMediaInCell(e.dataTransfer.files[0],idx);
+  });
+
+  el.querySelector('.cell-close').addEventListener('click',e=>{e.stopPropagation();clearCell(idx);});
+  el.addEventListener('mousedown',()=>{activeCell=idx;});
+  el.addEventListener('dblclick',e=>{ if(!state.hasMedia){activeCell=idx;document.getElementById('file-input').click();} });
+
+  // loadMedia
+  state.loadMedia=function(url,type,name){
+    const wrap=el.querySelector('.cell-media-wrap');
+    const hint=el.querySelector('.cell-empty-hint');
+    const ctrl=el.querySelector('.cell-controls');
+    const titleEl=el.querySelector('.cell-title');
+
+    if(this.mediaEl?.tagName==='VIDEO'){this.mediaEl.pause();this.mediaEl.src='';}
+    wrap.innerHTML=''; wrap.style.display='block'; hint.style.display='none';
+    el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),600);
+
+    this.hasMedia=true;this.mediaType=type;this.mediaUrl=url;this.mediaName=name;
+    this.zoom=1;this.offsetX=0;this.offsetY=0;
+    titleEl.textContent=name||'';
+
+    const self=this;
+    let mediaEl;
+
+    if(type==='video'){
+      mediaEl=document.createElement('video');
+      mediaEl.src=url;mediaEl.muted=true;mediaEl.loop=true;
+      mediaEl.autoplay=true;mediaEl.playsInline=true;mediaEl.preload='metadata';
+      ctrl.style.display='flex';
+
+      mediaEl.addEventListener('error',()=>{
+        wrap.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--accent2);font-size:11px;text-align:center;padding:16px;">
+          <div style="font-size:22px">⚠️</div>
+          <div>格式不支援</div>
+          <div style="color:var(--text3);font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</div>
+          <div style="color:var(--text3);font-size:10px">${ffmpegReady?'轉碼失敗':'點擊格子右側 ⚙ 可重新嘗試'}</div></div>`;
+      });
+
+      // Controls — clone to clear old listeners
+      ['play-btn','mute-btn','fs-btn','progress-bar-wrap'].forEach(cls=>{
+        const old=el.querySelector('.'+cls); if(!old)return;
+        const nb=old.cloneNode(true); old.parentNode.replaceChild(nb,old);
+      });
+
+      const pb=el.querySelector('.play-btn');
+      const mb=el.querySelector('.mute-btn');
+      const vs=el.querySelector('.vol-slider');
+      const pw=el.querySelector('.progress-bar-wrap');
+      const fb=el.querySelector('.fs-btn');
+
+      pb.textContent='⏸';
+      mediaEl.addEventListener('play',()=>{pb.textContent='⏸';});
+      mediaEl.addEventListener('pause',()=>{pb.textContent='▶';});
+      pb.addEventListener('click',e=>{e.stopPropagation();mediaEl.paused?mediaEl.play():mediaEl.pause();});
+      mb.addEventListener('click',e=>{
+        e.stopPropagation();
+        mediaEl.muted=!mediaEl.muted;
+        mb.textContent=mediaEl.muted?'🔇':'🔊';
+        vs.value=mediaEl.muted?0:mediaEl.volume;
+      });
+      vs.addEventListener('input',e=>{
+        e.stopPropagation();
+        mediaEl.volume=+vs.value;
+        mediaEl.muted=+vs.value===0;
+        mb.textContent=mediaEl.muted?'🔇':'🔊';
+      });
+      vs.addEventListener('mousedown',e=>e.stopPropagation());
+      mediaEl.addEventListener('timeupdate',()=>{
+        if(!mediaEl.duration)return;
+        el.querySelector('.progress-bar-fill').style.width=(mediaEl.currentTime/mediaEl.duration*100)+'%';
+        el.querySelector('.time-label').textContent=fmt(mediaEl.currentTime)+' / '+fmt(mediaEl.duration);
+      });
+      pw.addEventListener('click',e=>{
+        e.stopPropagation();
+        const r=pw.getBoundingClientRect();
+        mediaEl.currentTime=(e.clientX-r.left)/r.width*mediaEl.duration;
+      });
+      fb.addEventListener('click',e=>{
+        e.stopPropagation();
+        document.fullscreenElement?document.exitFullscreen():el.requestFullscreen?.();
+      });
+
+    } else {
+      mediaEl=document.createElement('img');
+      mediaEl.src=url;mediaEl.draggable=false;
+      ctrl.style.display='none';
+    }
+
+    wrap.appendChild(mediaEl);
+    this.mediaEl=mediaEl;
+
+    const center=()=>{
+      const cw=wrap.offsetWidth,ch=wrap.offsetHeight;
+      const mw=type==='video'?(mediaEl.videoWidth||cw):(mediaEl.naturalWidth||cw);
+      const mh=type==='video'?(mediaEl.videoHeight||ch):(mediaEl.naturalHeight||ch);
+      const s=Math.min(cw/mw,ch/mh);
+      const w=mw*s,h=mh*s;
+      mediaEl.style.width=w+'px';mediaEl.style.height=h+'px';
+      mediaEl.style.left=((cw-w)/2)+'px';mediaEl.style.top=((ch-h)/2)+'px';
+      self.zoom=1;self.offsetX=(cw-w)/2;self.offsetY=(ch-h)/2;self.baseW=w;self.baseH=h;
+    };
+    if(type==='video') mediaEl.addEventListener('loadedmetadata',center);
+    else mediaEl.onload=center;
+
+    // Interact (attach once per cell, not per loadMedia)
+    if(!this._interactDone){
+      this._interactDone=true;
+
+      wrap.addEventListener('wheel',e=>{
+        e.preventDefault();
+        const r=wrap.getBoundingClientRect();
+        const mx=e.clientX-r.left,my=e.clientY-r.top;
+        const d=e.deltaY<0?1.13:1/1.13;
+        const nz=Math.max(0.05,Math.min(self.zoom*d,40));
+        const ratio=nz/self.zoom;
+        self.offsetX=mx-(mx-self.offsetX)*ratio;
+        self.offsetY=my-(my-self.offsetY)*ratio;
+        self.zoom=nz;applyT(self);
+      },{passive:false});
+
+      let pan=null;
+      wrap.addEventListener('mousedown',e=>{
+        if(e.button!==0)return;e.preventDefault();
+        pan={x:e.clientX,y:e.clientY,ox:self.offsetX,oy:self.offsetY};
+        wrap.classList.add('grabbing');
+      });
+      window.addEventListener('mousemove',e=>{
+        if(!pan)return;
+        self.offsetX=pan.ox+(e.clientX-pan.x);
+        self.offsetY=pan.oy+(e.clientY-pan.y);
+        applyT(self);
+      });
+      window.addEventListener('mouseup',()=>{if(pan){pan=null;wrap.classList.remove('grabbing');}});
+      wrap.addEventListener('dblclick',e=>{
+        e.stopPropagation();
+        const cw=wrap.offsetWidth,ch=wrap.offsetHeight;
+        self.zoom=1;self.offsetX=(cw-self.baseW)/2;self.offsetY=(ch-self.baseH)/2;
+        applyT(self);
+      });
+    }
+  };
+
+  return state;
+}
+
+function applyT(s){
+  const wrap=s.el.querySelector('.cell-media-wrap');
+  const m=wrap.querySelector('video,img');if(!m)return;
+  const w=s.baseW*s.zoom,h=s.baseH*s.zoom;
+  m.style.width=w+'px';m.style.height=h+'px';
+  m.style.left=s.offsetX+'px';m.style.top=s.offsetY+'px';
+}
+
+// ══════════════════════════════════════════════════
+// Viewer external drop
+// ══════════════════════════════════════════════════
+const viewer=document.getElementById('viewer');
+const dropOv=document.getElementById('drop-overlay');
+viewer.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dropOv.classList.add('show');}});
+viewer.addEventListener('dragleave',e=>{if(!viewer.contains(e.relatedTarget))dropOv.classList.remove('show');});
+viewer.addEventListener('drop',e=>{
+  e.preventDefault();dropOv.classList.remove('show');
+  if(dragFileIdx!==null)return;
+  [...e.dataTransfer.files]
+    .filter(f=>/\.(mp4|webm|ogg|mkv|mov|avi|m4v|flv|wmv|ts|3gp|mpeg|mpg|jpg|jpeg|png|gif|webp|bmp|svg|avif)$/i.test(f.name))
+    .forEach(f=>openMediaInCell(f,getNextEmpty()));
+});
+
+// ══════════════════════════════════════════════════
+// Sidebar resize
+// ══════════════════════════════════════════════════
+const sbar=document.getElementById('sidebar');
+const rh=document.getElementById('sidebar-resize');
+let rz=false,rx=0,rw=0;
+rh.addEventListener('mousedown',e=>{rz=true;rx=e.clientX;rw=sbar.offsetWidth;document.body.style.cursor='ew-resize';document.body.style.userSelect='none';});
+window.addEventListener('mousemove',e=>{if(rz)sbar.style.width=Math.max(140,Math.min(500,rw+(e.clientX-rx)))+'px';});
+window.addEventListener('mouseup',()=>{if(rz){rz=false;document.body.style.cursor='';document.body.style.userSelect='';}});
+
+// ══════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════
+function fmt(s){if(isNaN(s))return'0:00';return`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function setStatus(m){document.getElementById('status-msg').textContent=m;}
+
+let toastTimer=null;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ══════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════
+setLayout(1);
+// Delay FFmpeg init slightly so page renders first
+setTimeout(initFFmpeg, 800);
+</script>
+</body>
+</html>

@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VPX 視頻播放器</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #161616;
+  --border: #222222;
+  --accent: #e8ff47;
+  --text: #e0e0e0;
+  --muted: #555;
+  --red: #ff4444;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ═══ TOP BAR ═══ */
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 46px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  z-index: 100;
+  gap: 12px;
+}
+
+.logo { font-size: 11px; letter-spacing: 0.2em; color: var(--accent); flex-shrink: 0; }
+
+#controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.ctrl-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  font-family: inherit; font-size: 10px; letter-spacing: 0.08em;
+  padding: 5px 11px; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.04); }
+.ctrl-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.06); }
+.ctrl-btn svg { transition: transform 0.35s ease; }
+.ctrl-btn:hover svg { transform: rotate(90deg); }
+
+/* Volume control */
+#vol-wrap {
+  display: flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); padding: 5px 10px;
+  transition: border-color 0.15s;
+}
+#vol-wrap:hover { border-color: var(--muted); }
+
+#vol-icon {
+  background: none; border: none; color: var(--muted);
+  font-size: 13px; cursor: pointer; padding: 0; line-height: 1;
+  transition: color 0.15s; flex-shrink: 0; width: 18px; text-align: center;
+}
+#vol-icon:hover { color: var(--accent); }
+#vol-icon.muted { color: var(--red); }
+
+#vol-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 80px; height: 3px; background: var(--border);
+  outline: none; cursor: pointer; border-radius: 2px;
+  accent-color: var(--accent);
+}
+#vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  box-shadow: 0 0 5px rgba(232,255,71,0.4);
+}
+#vol-label { font-size: 10px; color: var(--muted); width: 28px; text-align: right; }
+
+/* Dual mode btn */
+#dual-btn { position: relative; }
+#dual-btn .dual-icon {
+  display: flex; gap: 3px; align-items: center;
+}
+#dual-btn .d1, #dual-btn .d2 {
+  width: 9px; height: 12px; border: 1px solid currentColor; border-radius: 1px;
+}
+
+/* ═══ WORKSPACE ═══ */
+#workspace {
+  flex: 1; display: flex; min-height: 0;
+  position: relative;
+}
+
+/* ═══ PANEL ═══ */
+.panel {
+  flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  position: relative;
+}
+
+.panel + .panel {
+  border-left: 2px solid var(--border);
+}
+
+#workspace.single-mode .panel:not(#panel-left) { display: none; }
+#workspace.single-mode #panel-left { flex: 1; }
+
+/* Panel header */
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; height: 34px; background: var(--surface2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+
+.panel-label {
+  font-size: 9px; letter-spacing: 0.18em; color: var(--muted); text-transform: uppercase;
+}
+
+.panel-file {
+  font-size: 10px; color: #333; letter-spacing: 0.04em;
+  max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.panel-rotate {
+  background: none; border: 1px solid transparent; color: var(--muted);
+  font-family: inherit; font-size: 9px; letter-spacing: 0.08em;
+  padding: 3px 8px; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 4px;
+}
+.panel-rotate:hover { border-color: var(--border); color: var(--accent); }
+
+/* Panel main */
+.panel-main {
+  flex: 1; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; min-height: 0;
+}
+
+/* Empty state */
+.empty-state {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 2; transition: opacity 0.3s;
+}
+.empty-state.hidden { opacity: 0; }
+
+.empty-icon { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.08; }
+.empty-text { font-size: 11px; letter-spacing: 0.2em; color: #2a2a2a; text-transform: uppercase; margin-bottom: 6px; }
+.empty-sub  { font-size: 9px; color: #1e1e1e; letter-spacing: 0.1em; }
+
+/* Drop overlay */
+.drop-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9; pointer-events: none; opacity: 0; transition: opacity 0.2s;
+}
+.drop-overlay.show { opacity: 1; }
+
+.drop-box {
+  border: 1px dashed var(--accent); padding: 40px 60px;
+  text-align: center; background: rgba(10,10,10,0.8);
+}
+.drop-title { font-size: 12px; letter-spacing: 0.15em; color: var(--accent); text-transform: uppercase; margin-bottom: 8px; }
+.drop-hint  { font-size: 9px; color: var(--muted); letter-spacing: 0.08em; }
+
+/* Video */
+.video-wrap {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+
+.video-transform {
+  position: relative; transform-origin: center center;
+  will-change: transform; cursor: grab; line-height: 0;
+}
+.video-transform.grabbing { cursor: grabbing; }
+
+.vid { display: block; }
+
+/* Overlays */
+.seek-flash {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(10,10,10,0.88); border: 1px solid var(--accent);
+  color: var(--accent); font-size: 12px; letter-spacing: 0.12em;
+  padding: 8px 22px; pointer-events: none; opacity: 0; transition: opacity 0.25s; z-index: 8;
+}
+.seek-flash.show { opacity: 1; }
+
+.zoom-indicator {
+  position: absolute; bottom: 12px; left: 12px;
+  font-size: 9px; letter-spacing: 0.12em; color: var(--muted);
+  pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 8;
+}
+.zoom-indicator.show { opacity: 1; }
+
+.reset-view {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(10,10,10,0.8); border: 1px solid var(--border);
+  color: var(--muted); font-family: inherit; font-size: 9px;
+  letter-spacing: 0.1em; padding: 4px 9px; cursor: pointer;
+  transition: all 0.15s; opacity: 0; pointer-events: none; z-index: 8;
+}
+.reset-view.show { opacity: 1; pointer-events: all; }
+.reset-view:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ═══ BOTTOM BAR ═══ */
+#bottom-bar {
+  flex-shrink: 0; background: var(--surface);
+  border-top: 1px solid var(--border); z-index: 100;
+}
+
+/* Dual bottom: two rows side-by-side */
+#bottom-inner {
+  display: flex;
+}
+
+.bar-section {
+  flex: 1; padding: 8px 16px 11px; min-width: 0;
+}
+
+.bar-section + .bar-section {
+  border-left: 2px solid var(--border);
+}
+
+#workspace.single-mode .bar-section:not(#bar-left) { display: none; }
+#workspace.single-mode #bar-left { flex: 1; }
+
+.time-row {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px;
+}
+.time-display { font-size: 10px; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.time-display .sep { color: var(--muted); margin: 0 4px; }
+.time-display .dur { color: var(--muted); }
+
+.bottom-controls { display: flex; align-items: center; gap: 10px; }
+
+.play-btn {
+  background: none; border: none; color: var(--text);
+  cursor: pointer; font-size: 14px; line-height: 1;
+  padding: 0; flex-shrink: 0; transition: color 0.15s; width: 18px; text-align: center;
+}
+.play-btn:hover { color: var(--accent); }
+
+/* Seekbar */
+.seekbar-outer { flex: 1; position: relative; }
+
+.seekbar-wrap {
+  position: relative; height: 20px;
+  display: flex; align-items: center; cursor: pointer;
+}
+
+.seekbar-track {
+  position: absolute; left: 0; right: 0; height: 3px;
+  background: var(--border); border-radius: 2px; overflow: hidden;
+}
+
+.seekbar-fill {
+  height: 100%; background: var(--accent); width: 0%; border-radius: 2px;
+  pointer-events: none;
+}
+
+.seekbar-thumb {
+  position: absolute; width: 10px; height: 10px;
+  background: var(--accent); border-radius: 50%;
+  top: 50%; left: 0%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 5px rgba(232,255,71,0.4);
+  transition: transform 0.1s;
+}
+.seekbar-wrap:hover .seekbar-thumb { transform: translate(-50%, -50%) scale(1.4); }
+.seekbar-wrap.seeking .seekbar-thumb { transform: translate(-50%, -50%) scale(1.5); }
+
+.seek-tooltip {
+  position: absolute; bottom: 24px;
+  background: rgba(10,10,10,0.92); border: 1px solid var(--border);
+  color: var(--text); font-size: 9px; letter-spacing: 0.08em;
+  padding: 2px 7px; pointer-events: none;
+  opacity: 0; transition: opacity 0.1s; transform: translateX(-50%); white-space: nowrap;
+}
+.seek-tooltip.show { opacity: 1; }
+
+/* divider drag handle */
+#divider {
+  width: 4px; background: var(--border); cursor: col-resize; flex-shrink: 0;
+  position: relative; transition: background 0.15s; z-index: 50;
+}
+#divider:hover, #divider.dragging { background: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">▶ VPX</div>
+
+  <div id="controls">
+    <!-- Dual mode toggle -->
+    <button class="ctrl-btn" id="dual-btn" title="雙視窗模式">
+      <span class="dual-icon"><span class="d1"></span><span class="d2"></span></span>
+      雙視窗
+    </button>
+
+    <!-- Rotate buttons (only in single) -->
+    <button class="ctrl-btn" id="rotate-btn-top" title="旋轉 90°">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+      </svg>
+      旋轉
+    </button>
+
+    <!-- Reset -->
+    <button class="ctrl-btn" id="reset-btn-top">RESET</button>
+
+    <!-- Volume -->
+    <div id="vol-wrap">
+      <button id="vol-icon" title="靜音切換">🔇</button>
+      <input type="range" id="vol-slider" min="0" max="100" value="0" step="1">
+      <span id="vol-label">0%</span>
+    </div>
+  </div>
+</div>
+
+<!-- WORKSPACE -->
+<div id="workspace" class="single-mode">
+
+  <!-- LEFT PANEL -->
+  <div class="panel" id="panel-left">
+    <div class="panel-header">
+      <span class="panel-label" id="label-left">單視窗</span>
+      <span class="panel-file" id="file-left">— 無檔案 —</span>
+      <button class="panel-rotate" data-panel="left">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/>
+        </svg>
+        旋轉
+      </button>
+    </div>
+    <div class="panel-main" id="pmain-left">
+      <div class="empty-state" id="empty-left">
+        <svg class="empty-icon" viewBox="0 0 56 56" fill="none" stroke="#fff" stroke-width="1.5">
+          <rect x="3" y="10" width="50" height="36" rx="3"/>
+          <path d="M23 20l14 8-14 8V20z" fill="#fff" stroke="none"/>
+        </svg>
+        <div class="empty-text">拖曳影片到此處</div>
+        <div class="empty-sub">MP4 · WEBM · MOV · AVI · MKV</div>
+      </div>
+      <div class="drop-overlay" id="drop-left">
+        <div class="drop-box">
+          <div class="drop-title">放開以播放</div>
+          <div class="drop-hint">MP4 · WEBM · MOV · AVI · MKV</div>
+        </div>
+      </div>
+      <div class="video-wrap">
+        <div class="video-transform" id="vt-left">
+          <video class="vid" id="vid-left" preload="metadata"></video>
+        </div>
+      </div>
+      <div class="zoom-indicator" id="zi-left">ZOOM <span>100</span>%</div>
+      <div class="seek-flash" id="sf-left"></div>
+      <button class="reset-view" id="rv-left">RESET VIEW</button>
+    </div>
+  </div>
+
+  <!-- DIVIDER -->
+  <div id="divider"></div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel" id="panel-right">
+    <div class="panel-header">
+      <span class="panel-label">右側</span>
+      <span class="panel-file" id="file-right">— 無檔案 —</span>
+      <button class="panel-rotate" data-panel="right">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/>
+        </svg>
+        旋轉
+      </button>
+    </div>
+    <div class="panel-main" id="pmain-right">
+      <div class="empty-state" id="empty-right">
+        <svg class="empty-icon" viewBox="0 0 56 56" fill="none" stroke="#fff" stroke-width="1.5">
+          <rect x="3" y="10" width="50" height="36" rx="3"/>
+          <path d="M23 20l14 8-14 8V20z" fill="#fff" stroke="none"/>
+        </svg>
+        <div class="empty-text">拖曳影片到此處</div>
+        <div class="empty-sub">MP4 · WEBM · MOV · AVI · MKV</div>
+      </div>
+      <div class="drop-overlay" id="drop-right">
+        <div class="drop-box">
+          <div class="drop-title">放開以播放</div>
+          <div class="drop-hint">MP4 · WEBM · MOV · AVI · MKV</div>
+        </div>
+      </div>
+      <div class="video-wrap">
+        <div class="video-transform" id="vt-right">
+          <video class="vid" id="vid-right" preload="metadata"></video>
+        </div>
+      </div>
+      <div class="zoom-indicator" id="zi-right">ZOOM <span>100</span>%</div>
+      <div class="seek-flash" id="sf-right"></div>
+      <button class="reset-view" id="rv-right">RESET VIEW</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottom-bar">
+  <div id="bottom-inner">
+    <!-- Left bar -->
+    <div class="bar-section" id="bar-left">
+      <div class="time-row">
+        <div class="time-display">
+          <span class="td-cur">00:00.0</span>
+          <span class="sep">/</span>
+          <span class="dur td-dur">--:--.–</span>
+        </div>
+        <span style="font-size:9px;color:var(--muted)">← → ±3s &nbsp;·&nbsp; 滾輪縮放</span>
+      </div>
+      <div class="bottom-controls">
+        <button class="play-btn" data-panel="left">▶</button>
+        <div class="seekbar-outer">
+          <div class="seekbar-wrap" data-panel="left">
+            <div class="seekbar-track"><div class="seekbar-fill"></div></div>
+            <div class="seekbar-thumb"></div>
+            <div class="seek-tooltip"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Right bar -->
+    <div class="bar-section" id="bar-right">
+      <div class="time-row">
+        <div class="time-display">
+          <span class="td-cur">00:00.0</span>
+          <span class="sep">/</span>
+          <span class="dur td-dur">--:--.–</span>
+        </div>
+      </div>
+      <div class="bottom-controls">
+        <button class="play-btn" data-panel="right">▶</button>
+        <div class="seekbar-outer">
+          <div class="seekbar-wrap" data-panel="right">
+            <div class="seekbar-track"><div class="seekbar-fill"></div></div>
+            <div class="seekbar-thumb"></div>
+            <div class="seek-tooltip"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  Per-panel state
+// ═══════════════════════════════════════════
+const panels = {};
+
+['left','right'].forEach(side => {
+  panels[side] = {
+    side,
+    hasVideo: false,
+    scale: 1, rotation: 0, panX: 0, panY: 0,
+    isDragging: false, dragSX: 0, dragSY: 0, panSX: 0, panSY: 0,
+    isSeeking: false,
+    zoomTimer: null, flashTimer: null,
+
+    // DOM refs
+    get vid()    { return document.getElementById('vid-'+side); },
+    get vt()     { return document.getElementById('vt-'+side); },
+    get pmain()  { return document.getElementById('pmain-'+side); },
+    get empty()  { return document.getElementById('empty-'+side); },
+    get drop()   { return document.getElementById('drop-'+side); },
+    get zi()     { return document.getElementById('zi-'+side); },
+    get sf()     { return document.getElementById('sf-'+side); },
+    get rv()     { return document.getElementById('rv-'+side); },
+    get fileEl() { return document.getElementById('file-'+side); },
+    get bar()    { return document.getElementById('bar-'+side); },
+  };
+});
+
+// ═══════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════
+function fmt(t) {
+  if (!isFinite(t)||isNaN(t)) return '--:--.–';
+  const m = Math.floor(t/60).toString().padStart(2,'0');
+  const s = Math.floor(t%60).toString().padStart(2,'0');
+  const f = Math.floor((t%1)*10);
+  return `${m}:${s}.${f}`;
+}
+
+function applyTransform(p) {
+  p.vt.style.transform = `translate(${p.panX}px,${p.panY}px) rotate(${p.rotation}deg) scale(${p.scale})`;
+}
+
+function updateResetBtn(p) {
+  const dirty = Math.abs(p.panX)>2 || Math.abs(p.panY)>2 || p.rotation!==0;
+  p.rv.classList.toggle('show', dirty);
+}
+
+function fitVideo(p) {
+  const mw = p.pmain.clientWidth;
+  const mh = p.pmain.clientHeight;
+  const vw = p.vid.videoWidth;
+  const vh = p.vid.videoHeight;
+  if (!vw||!vh) return;
+  p.vid.width  = vw;
+  p.vid.height = vh;
+  const swapped = p.rotation % 180 !== 0;
+  const fw = swapped ? vh : vw;
+  const fh = swapped ? vw : vh;
+  p.scale = Math.min(mw/fw, mh/fh);
+  p.panX = 0; p.panY = 0;
+  applyTransform(p);
+  const ziSpan = p.zi.querySelector('span');
+  if (ziSpan) ziSpan.textContent = Math.round(p.scale*100);
+  updateResetBtn(p);
+}
+
+function doZoom(p, newScale, ox, oy) {
+  const clamped = Math.min(Math.max(newScale, 0.05), 15);
+  if (ox!=null) {
+    const rect = p.vt.getBoundingClientRect();
+    const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+    const ratio = clamped/p.scale;
+    p.panX += (ox-cx)*(1-ratio);
+    p.panY += (oy-cy)*(1-ratio);
+  }
+  p.scale = clamped;
+  applyTransform(p);
+  const ziSpan = p.zi.querySelector('span');
+  if (ziSpan) ziSpan.textContent = Math.round(p.scale*100);
+  p.zi.classList.add('show');
+  clearTimeout(p.zoomTimer);
+  p.zoomTimer = setTimeout(()=>p.zi.classList.remove('show'),1300);
+  updateResetBtn(p);
+}
+
+function flashSeek(p, msg) {
+  p.sf.textContent = msg;
+  p.sf.classList.add('show');
+  clearTimeout(p.flashTimer);
+  p.flashTimer = setTimeout(()=>p.sf.classList.remove('show'),650);
+}
+
+function resetView(p) {
+  p.rotation=0; p.panX=0; p.panY=0;
+  fitVideo(p);
+}
+
+function updateSeekbar(p) {
+  const vid = p.vid;
+  if (!vid.duration||p.isSeeking) return;
+  const pct = (vid.currentTime/vid.duration)*100;
+  const bar = p.bar;
+  bar.querySelector('.seekbar-fill').style.width  = pct+'%';
+  bar.querySelector('.seekbar-thumb').style.left  = pct+'%';
+  bar.querySelector('.td-cur').textContent = fmt(vid.currentTime);
+}
+
+function seekToFrac(p, e) {
+  const wrap = p.bar.querySelector('.seekbar-wrap');
+  const rect = wrap.getBoundingClientRect();
+  const pct  = Math.min(Math.max((e.clientX-rect.left)/rect.width,0),1);
+  p.vid.currentTime = pct*(p.vid.duration||0);
+  p.bar.querySelector('.seekbar-fill').style.width = (pct*100)+'%';
+  p.bar.querySelector('.seekbar-thumb').style.left = (pct*100)+'%';
+  p.bar.querySelector('.td-cur').textContent = fmt(p.vid.currentTime);
+}
+
+function loadVideo(p, file) {
+  const old = p.vid.src;
+  if (old&&old.startsWith('blob:')) URL.revokeObjectURL(old);
+  p.vid.src = URL.createObjectURL(file);
+  p.vid.muted = true;  // default muted
+  p.vid.load();
+  p.vid.addEventListener('loadedmetadata', ()=>{
+    p.rotation=0;
+    fitVideo(p);
+    p.vid.play().catch(()=>{});
+    p.bar.querySelector('.td-dur').textContent = fmt(p.vid.duration);
+    syncVolumeToVideos();
+  }, {once:true});
+  p.fileEl.textContent = file.name;
+  p.hasVideo = true;
+  p.empty.classList.add('hidden');
+  p.bar.querySelector('.td-cur').textContent = '00:00.0';
+  p.bar.querySelector('.td-dur').textContent = '--:--.–';
+  p.bar.querySelector('.seekbar-fill').style.width = '0%';
+  p.bar.querySelector('.seekbar-thumb').style.left = '0%';
+}
+
+// ═══════════════════════════════════════════
+//  Video events
+// ═══════════════════════════════════════════
+['left','right'].forEach(side => {
+  const p = panels[side];
+  const vid = p.vid;
+
+  vid.addEventListener('timeupdate', ()=>updateSeekbar(p));
+  vid.addEventListener('loadedmetadata', ()=>{
+    p.bar.querySelector('.td-dur').textContent = fmt(vid.duration);
+  });
+  vid.addEventListener('play',  ()=>{ p.bar.querySelector('.play-btn').textContent='⏸'; });
+  vid.addEventListener('pause', ()=>{ p.bar.querySelector('.play-btn').textContent='▶'; });
+  vid.addEventListener('click', ()=>{ vid.paused?vid.play():vid.pause(); });
+
+  // play btn
+  p.bar.querySelector('.play-btn').addEventListener('click', ()=>{
+    vid.paused?vid.play():vid.pause();
+  });
+
+  // panel rotate btn
+  document.querySelector(`.panel-rotate[data-panel="${side}"]`).addEventListener('click', ()=>{
+    p.rotation=(p.rotation+90)%360;
+    fitVideo(p);
+  });
+
+  // reset view btn
+  p.rv.addEventListener('click', ()=>resetView(p));
+});
+
+// ═══════════════════════════════════════════
+//  Keyboard — acts on whichever panel was last hovered
+// ═══════════════════════════════════════════
+let activePanel = panels.left;
+
+['left','right'].forEach(side=>{
+  panels[side].pmain.addEventListener('mouseenter',()=>{ activePanel = panels[side]; });
+  panels[side].bar.addEventListener('mouseenter',()=>{ activePanel = panels[side]; });
+});
+
+document.addEventListener('keydown', (e)=>{
+  const p = activePanel;
+  if (!p.hasVideo) return;
+  if (e.key==='ArrowLeft')  { e.preventDefault(); p.vid.currentTime=Math.max(0,p.vid.currentTime-3); flashSeek(p,'◀ −3s'); }
+  else if (e.key==='ArrowRight') { e.preventDefault(); p.vid.currentTime=Math.min(p.vid.duration||0,p.vid.currentTime+3); flashSeek(p,'▶ +3s'); }
+  else if (e.key===' ')    { e.preventDefault(); p.vid.paused?p.vid.play():p.vid.pause(); }
+});
+
+// ═══════════════════════════════════════════
+//  Mouse: zoom, pan, seekbar
+// ═══════════════════════════════════════════
+['left','right'].forEach(side=>{
+  const p = panels[side];
+
+  // Wheel zoom
+  p.pmain.addEventListener('wheel', (e)=>{
+    if (!p.hasVideo) return;
+    e.preventDefault();
+    doZoom(p, p.scale*(e.deltaY<0?1.09:1/1.09), e.clientX, e.clientY);
+  }, {passive:false});
+
+  // Pan start
+  p.vt.addEventListener('mousedown', (e)=>{
+    if (!p.hasVideo||p.isSeeking) return;
+    e.preventDefault();
+    p.isDragging=true;
+    p.dragSX=e.clientX; p.dragSY=e.clientY;
+    p.panSX=p.panX;     p.panSY=p.panY;
+    p.vt.classList.add('grabbing');
+  });
+
+  // Seekbar mousedown
+  const seekWrap = p.bar.querySelector('.seekbar-wrap');
+  seekWrap.addEventListener('mousedown', (e)=>{
+    e.preventDefault();
+    p.isSeeking=true;
+    seekWrap.classList.add('seeking');
+    seekToFrac(p,e);
+  });
+});
+
+window.addEventListener('mousemove', (e)=>{
+  ['left','right'].forEach(side=>{
+    const p = panels[side];
+
+    // Pan
+    if (p.isDragging) {
+      p.panX = p.panSX+(e.clientX-p.dragSX);
+      p.panY = p.panSY+(e.clientY-p.dragSY);
+      applyTransform(p);
+      updateResetBtn(p);
+    }
+
+    // Seekbar drag + tooltip
+    const seekWrap = p.bar.querySelector('.seekbar-wrap');
+    const tooltip  = seekWrap.querySelector('.seek-tooltip');
+    const rect = seekWrap.getBoundingClientRect();
+    const inside = e.clientX>=rect.left&&e.clientX<=rect.right
+                 &&e.clientY>=rect.top-30&&e.clientY<=rect.bottom+30;
+    if (inside && p.vid.duration) {
+      const pct = Math.min(Math.max((e.clientX-rect.left)/rect.width,0),1);
+      tooltip.textContent = fmt(pct*p.vid.duration);
+      tooltip.style.left  = (e.clientX-rect.left)+'px';
+      tooltip.classList.add('show');
+    } else if (!p.isSeeking) {
+      tooltip.classList.remove('show');
+    }
+
+    if (p.isSeeking) seekToFrac(p,e);
+  });
+});
+
+window.addEventListener('mouseup', ()=>{
+  ['left','right'].forEach(side=>{
+    const p = panels[side];
+    if (p.isDragging) { p.isDragging=false; p.vt.classList.remove('grabbing'); }
+    if (p.isSeeking)  {
+      p.isSeeking=false;
+      p.bar.querySelector('.seekbar-wrap').classList.remove('seeking');
+      p.bar.querySelector('.seek-tooltip').classList.remove('show');
+    }
+  });
+});
+
+// ═══════════════════════════════════════════
+//  Drag & Drop — target correct panel
+// ═══════════════════════════════════════════
+const workspace = document.getElementById('workspace');
+let dragCounters = {left:0, right:0};
+
+function getPanelFromPoint(x,y) {
+  const lRect = document.getElementById('panel-left').getBoundingClientRect();
+  const rRect = document.getElementById('panel-right').getBoundingClientRect();
+  const isDual = !workspace.classList.contains('single-mode');
+  if (isDual) {
+    if (x>=lRect.left&&x<=lRect.right) return 'left';
+    if (x>=rRect.left&&x<=rRect.right) return 'right';
+    return null;
+  }
+  return 'left';
+}
+
+window.addEventListener('dragenter', (e)=>{ e.preventDefault(); });
+window.addEventListener('dragover',  (e)=>{ e.preventDefault();
+  const side = getPanelFromPoint(e.clientX, e.clientY);
+  ['left','right'].forEach(s=>{
+    panels[s].drop.classList.toggle('show', s===side);
+  });
+});
+
+window.addEventListener('dragleave', (e)=>{
+  if (!e.relatedTarget||!document.contains(e.relatedTarget)||
+      e.relatedTarget===document.documentElement) {
+    panels.left.drop.classList.remove('show');
+    panels.right.drop.classList.remove('show');
+  }
+});
+
+window.addEventListener('drop', (e)=>{
+  e.preventDefault();
+  panels.left.drop.classList.remove('show');
+  panels.right.drop.classList.remove('show');
+  const side = getPanelFromPoint(e.clientX, e.clientY) || 'left';
+  const file = e.dataTransfer.files[0];
+  if (file&&file.type.startsWith('video/')) loadVideo(panels[side], file);
+  else if (file) flashSeek(panels[side], '不支援格式');
+});
+
+// ═══════════════════════════════════════════
+//  Volume
+// ═══════════════════════════════════════════
+const volIcon   = document.getElementById('vol-icon');
+const volSlider = document.getElementById('vol-slider');
+const volLabel  = document.getElementById('vol-label');
+
+let isMuted = true;
+let lastVol = 80;
+
+function syncVolumeToVideos() {
+  const vol = isMuted ? 0 : (volSlider.value/100);
+  ['left','right'].forEach(s=>{
+    panels[s].vid.volume = vol;
+    panels[s].vid.muted  = isMuted;
+  });
+  volLabel.textContent = isMuted ? '0%' : volSlider.value+'%';
+  volIcon.textContent  = isMuted ? '🔇' : (volSlider.value>50?'🔊':'🔉');
+  volIcon.classList.toggle('muted', isMuted);
+
+  // Update slider fill color
+  const pct = isMuted ? 0 : volSlider.value;
+  volSlider.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--border) ${pct}%)`;
+}
+
+volIcon.addEventListener('click', ()=>{
+  isMuted = !isMuted;
+  if (!isMuted && volSlider.value==0) volSlider.value = lastVol;
+  syncVolumeToVideos();
+});
+
+volSlider.addEventListener('input', ()=>{
+  lastVol = volSlider.value;
+  isMuted = (volSlider.value==0);
+  syncVolumeToVideos();
+});
+
+// init volume UI
+syncVolumeToVideos();
+
+// ═══════════════════════════════════════════
+//  Dual / Single mode toggle
+// ═══════════════════════════════════════════
+const dualBtn  = document.getElementById('dual-btn');
+const divider  = document.getElementById('divider');
+const labelLeft = document.getElementById('label-left');
+
+dualBtn.addEventListener('click', ()=>{
+  const isDual = workspace.classList.toggle('single-mode') === false;
+  // toggle returns true if class was added (single), false if removed (dual)
+  const nowSingle = workspace.classList.contains('single-mode');
+  dualBtn.classList.toggle('active', !nowSingle);
+  labelLeft.textContent = nowSingle ? '單視窗' : '左側';
+  divider.style.display = nowSingle ? 'none' : '';
+  // refit
+  setTimeout(()=>{
+    ['left','right'].forEach(s=>{ if(panels[s].hasVideo) fitVideo(panels[s]); });
+  }, 50);
+});
+
+// Divider drag resize
+let divDragging = false, divStartX = 0;
+let leftStartW = 0;
+
+divider.addEventListener('mousedown', (e)=>{
+  divDragging = true;
+  divStartX = e.clientX;
+  leftStartW = document.getElementById('panel-left').getBoundingClientRect().width;
+  divider.classList.add('dragging');
+  e.preventDefault();
+});
+
+window.addEventListener('mousemove', (e)=>{
+  if (!divDragging) return;
+  const dx = e.clientX - divStartX;
+  const total = workspace.clientWidth;
+  let newLeft = Math.min(Math.max(leftStartW + dx, 200), total - 200);
+  const pct = (newLeft/total)*100;
+  document.getElementById('panel-left').style.flex  = `0 0 ${pct}%`;
+  document.getElementById('panel-right').style.flex = `0 0 ${100-pct}%`;
+});
+
+window.addEventListener('mouseup', ()=>{
+  if (divDragging) {
+    divDragging = false;
+    divider.classList.remove('dragging');
+    setTimeout(()=>{
+      ['left','right'].forEach(s=>{ if(panels[s].hasVideo) fitVideo(panels[s]); });
+    }, 50);
+  }
+});
+
+// Top rotate/reset buttons act on active panel
+document.getElementById('rotate-btn-top').addEventListener('click', ()=>{
+  const p = activePanel;
+  p.rotation=(p.rotation+90)%360;
+  fitVideo(p);
+});
+document.getElementById('reset-btn-top').addEventListener('click', ()=>resetView(activePanel));
+
+// Window resize
+window.addEventListener('resize', ()=>{
+  ['left','right'].forEach(s=>{ if(panels[s].hasVideo) fitVideo(panels[s]); });
+});
+
+// Init single mode divider hidden
+divider.style.display = 'none';
+
+// Init transforms
+['left','right'].forEach(s=>applyTransform(panels[s]));
+</script>
+</body>
+</html>
